@@ -1,0 +1,16 @@
+﻿<Window x:Class="Google_Bookmarks_Manager_for_GPOs.ImportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Import Bookmarks" Height="300" Width="500">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBox Grid.Row="0" Margin="10" x:Name="jsonTextBox" TextWrapping="Wrap" AcceptsReturn="True"/>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="10">
+            <Button x:Name="importButton" Content="Import" Width="100" Margin="5" Click="importButton_Click"/>
+            <Button x:Name="cancelButton" Content="Cancel" Width="100" Margin="5" Click="cancelButton_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,46 @@
+﻿<Window x:Class="Google_Bookmarks_Manager_for_GPOs.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Google_Bookmarks_Manager_for_GPOs"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="50"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Add controls here -->
+
+        <Label Grid.Row="1" Grid.Column="0" Content="Bookmark URL:" Margin="5"/>
+        <TextBox Grid.Row="1" Grid.Column="1" x:Name="bookmarkUrlTextBox" Margin="5"/>
+
+        <DataGrid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" x:Name="bookmarksDataGrid" AutoGenerateColumns="False" Margin="5" CanUserAddRows="True">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Bookmark Name" Binding="{Binding Name}" Width="*"/>
+                <DataGridTextColumn Header="Bookmark URL" Binding="{Binding Url}" Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+
+        <Label Grid.Row="2" Grid.Column="0" Content="Bookmark Folder Name:" Margin="5"/>
+        <TextBox Grid.Row="2" Grid.Column="1" x:Name="bookmarkFolderNameTextBox" Margin="5"/>
+
+        <Button Grid.Row="3" Grid.Column="0" x:Name="exportBookmarksButton" Content="Export Bookmarks" Margin="5" Click="exportBookmarksButton_Click_1"/>
+
+        <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="importBookmarksButton" Content="Import Bookmarks" Margin="5" Click="importBookmarksButton_Click" VerticalAlignment="Center" Height="38"/>
+            <Button Grid.Row="3" Grid.Column="1" x:Name="clearFormButton" Content="Clear Form" Margin="5" Click="clearFormButton_Click" VerticalAlignment="Center" Height="38" Width="94"/>
+
+        </StackPanel>
+
+    </Grid>
+</Window>
