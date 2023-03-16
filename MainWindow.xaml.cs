@@ -1,21 +1,37 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Windows;
-using System.Windows.Controls;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace Google_Bookmarks_Manager_for_GPOs
 {
+    public class Bookmark
+    {
+        #region Public Properties
+
+        public string Name { get; set; }
+        public string Url { get; set; }
+
+        #endregion Public Properties
+    }
+
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
     public partial class MainWindow : Window
     {
+        #region Private Fields
+
         private List<Bookmark> bookmarks;
         private string topLevelName;
+
+        #endregion Private Fields
+
+        #region Public Constructors
+
         public MainWindow()
         {
             InitializeComponent();
@@ -23,6 +39,14 @@ namespace Google_Bookmarks_Manager_for_GPOs
             bookmarks.Add(new Bookmark());
             bookmarksDataGrid.ItemsSource = bookmarks;
             bookmarksDataGrid.CanUserAddRows = true;
+        }
+
+        #endregion Public Constructors
+
+        #region Private Methods
+
+        private void addBookmarkButton_Click(object sender, RoutedEventArgs e)
+        {
         }
 
         private void bookmarksDataGrid_Loaded(object sender, RoutedEventArgs e)
@@ -33,39 +57,17 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 bookmarksDataGrid.Items.Refresh();
             }
         }
-        private void ParseBookmarks(string json)
+
+        private void clearFormButton_Click(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                var parsedJson = JArray.Parse(json);
+            // Clear the text boxes
+            bookmarkUrlTextBox.Clear();
+            bookmarkFolderNameTextBox.Clear();
 
-                topLevelName = parsedJson.First["toplevel_name"].ToString();
-                bookmarkFolderNameTextBox.Text = topLevelName;
-
-                bookmarks = JsonConvert.DeserializeObject<List<Bookmark>>(parsedJson.ToString());
-
-                // Remove the first element from the bookmarks list
-                bookmarks.RemoveAt(0);
-
-                bookmarksDataGrid.ItemsSource = bookmarks;
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error parsing bookmarks: " + ex.Message);
-            }
+            // Clear the bookmarks list and refresh the data grid
+            bookmarks.Clear();
+            bookmarksDataGrid.Items.Refresh();
         }
-
-
-
-        private void importBookmarksButton_Click(object sender, RoutedEventArgs e)
-        {
-            var importWindow = new ImportWindow();
-            if (importWindow.ShowDialog() == true)
-            {
-                ParseBookmarks(importWindow.Json);
-            }
-        }
-
 
         private void exportBookmarksButton_Click_1(object sender, RoutedEventArgs e)
         {
@@ -94,30 +96,37 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
-
-
-        private void addBookmarkButton_Click(object sender, RoutedEventArgs e)
+        private void importBookmarksButton_Click(object sender, RoutedEventArgs e)
         {
-
+            var importWindow = new ImportWindow();
+            if (importWindow.ShowDialog() == true)
+            {
+                ParseBookmarks(importWindow.Json);
+            }
         }
 
-        private void clearFormButton_Click(object sender, RoutedEventArgs e)
+        private void ParseBookmarks(string json)
         {
-            // Clear the text boxes
-            bookmarkUrlTextBox.Clear();
-            bookmarkFolderNameTextBox.Clear();
+            try
+            {
+                var parsedJson = JArray.Parse(json);
 
-            // Clear the bookmarks list and refresh the data grid
-            bookmarks.Clear();
-            bookmarksDataGrid.Items.Refresh();
+                topLevelName = parsedJson.First["toplevel_name"].ToString();
+                bookmarkFolderNameTextBox.Text = topLevelName;
+
+                bookmarks = JsonConvert.DeserializeObject<List<Bookmark>>(parsedJson.ToString());
+
+                // Remove the first element from the bookmarks list
+                bookmarks.RemoveAt(0);
+
+                bookmarksDataGrid.ItemsSource = bookmarks;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error parsing bookmarks: " + ex.Message);
+            }
         }
-    }
 
-
-    public class Bookmark
-    {
-        public string Name { get; set; }
-        public string Url { get; set; }
+        #endregion Private Methods
     }
 }
-

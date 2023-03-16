@@ -4,11 +4,28 @@ namespace Google_Bookmarks_Manager_for_GPOs
 {
     public partial class ImportWindow : Window
     {
-        public string Json { get; set; }
+        #region Public Constructors
 
         public ImportWindow()
         {
             InitializeComponent();
+        }
+
+        #endregion Public Constructors
+
+        #region Public Properties
+
+        public string Json { get; set; }
+
+        #endregion Public Properties
+
+        #region Private Methods
+
+        private void cancelButton_Click(object sender, RoutedEventArgs e)
+        {
+            Json = null;
+            DialogResult = false;
+            Close();
         }
 
         private void importButton_Click(object sender, RoutedEventArgs e)
@@ -18,11 +35,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             Close();
         }
 
-        private void cancelButton_Click(object sender, RoutedEventArgs e)
-        {
-            Json = null;
-            DialogResult = false;
-            Close();
-        }
+        #endregion Private Methods
     }
 }
