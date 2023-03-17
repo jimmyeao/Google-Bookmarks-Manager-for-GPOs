@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Google_Bookmarks_Manager_for_GPOs"
         mc:Ignorable="d"
-        Title="Google BookMarks for GPO" Height="450" Width="800">
+        Title="Google BookMarks for GPO" Height="450" Width="813">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -41,5 +41,6 @@
             <Button x:Name="importBookmarksButton" Content="Import Bookmarks" Margin="5" Click="importBookmarksButton_Click" VerticalAlignment="Center" Height="38" />
             <Button Grid.Row="3" Grid.Column="1" x:Name="clearFormButton" Content="Clear Form" Margin="5" Click="clearFormButton_Click" VerticalAlignment="Center" Height="38" Width="94" />
         </StackPanel>
+        <Button Grid.Column="3" Content="Export Clipboard" HorizontalAlignment="Left" Margin="10,0,0,0" Grid.Row="3" VerticalAlignment="Center" RenderTransformOrigin="-1.388,-0.216" Height="40" Width="146" Click="Button_Click"/>
     </Grid>
 </Window>

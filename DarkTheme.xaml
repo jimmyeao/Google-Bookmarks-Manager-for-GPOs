@@ -1,0 +1,32 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Colors -->
+    <Color x:Key="PrimaryColor">#007ACC</Color>
+    <Color x:Key="SecondaryColor">#F2F2F2</Color>
+    <Color x:Key="BackgroundColor">#2B2B2B</Color>
+
+    <!-- Brushes -->
+    <SolidColorBrush x:Key="PrimaryColorBrush" Color="{StaticResource PrimaryColor}" />
+    <SolidColorBrush x:Key="SecondaryColorBrush" Color="{StaticResource SecondaryColor}" />
+    <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
+
+
+
+
+    <!-- Styles -->
+    <Style TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource PrimaryColorBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource SecondaryColorBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource PrimaryColorBrush}" />
+    </Style>
+
+    <Style TargetType="TextBox">
+        <Setter Property="Background" Value="{StaticResource SecondaryColorBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource PrimaryColorBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource PrimaryColorBrush}" />
+    </Style>
+
+    <!-- Add more styles and resources as needed for the dark theme -->
+
+</ResourceDictionary>

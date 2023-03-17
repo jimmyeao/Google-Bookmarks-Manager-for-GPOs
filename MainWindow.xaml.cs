@@ -2,25 +2,66 @@
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Windows;
 
 namespace Google_Bookmarks_Manager_for_GPOs
 {
-    public class Bookmark
+    public class Bookmark : INotifyPropertyChanged
     {
+        #region Private Fields
+
+       
+
+        #endregion Private Fields
+
         #region Public Properties
 
         public string Name { get; set; }
         public string Url { get; set; }
 
+       
+
         #endregion Public Properties
+
+        #region Private Methods
+
+        private static void UpdateTheme()
+        {
+            if (IsDarkModeEnabled)
+            {
+                Application.Current.Resources.MergedDictionaries.Clear();
+                Application.Current.Resources.MergedDictionaries.Add(
+                    new ResourceDictionary { Source = new Uri("DarkTheme.xaml", UriKind.Relative) });
+            }
+            else
+            {
+                Application.Current.Resources.MergedDictionaries.Clear();
+                Application.Current.Resources.MergedDictionaries.Add(
+                    new ResourceDictionary { Source = new Uri("LightTheme.xaml", UriKind.Relative) });
+            }
+        }
+
+        #endregion Private Methods
+
+        #region Public Events
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        #endregion Public Events
+
+        #region Private Methods
+
+        private void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        #endregion Private Methods
     }
 
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
     public partial class MainWindow : Window
     {
         #region Private Fields
@@ -31,7 +72,19 @@ namespace Google_Bookmarks_Manager_for_GPOs
         #endregion Private Fields
 
         #region Public Constructors
-
+        private static bool _isDarkModeEnabled;
+        public static bool IsDarkModeEnabled
+        {
+            get => _isDarkModeEnabled;
+            set
+            {
+                if (_isDarkModeEnabled != value)
+                {
+                    _isDarkModeEnabled = value;
+                    UpdateTheme();
+                }
+            }
+        }
         public MainWindow()
         {
             InitializeComponent();
@@ -78,6 +131,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             foreach (Bookmark bookmark in bookmarks)
             {
                 if (bookmark.Name != null || bookmark.Url != null) // check if the bookmark is not null
+
                 {
                     JObject bookmarkObject = new JObject(new JProperty("name", bookmark.Name ?? ""), new JProperty("url", bookmark.Url ?? ""));
                     bookmarksArray.Add(bookmarkObject);
@@ -93,6 +147,21 @@ namespace Google_Bookmarks_Manager_for_GPOs
             if (saveFileDialog.ShowDialog() == true)
             {
                 File.WriteAllText(saveFileDialog.FileName, json);
+            }
+        }
+        private void UpdateTheme()
+        {
+            if (IsDarkModeEnabled)
+            {
+                Application.Current.Resources.MergedDictionaries.Clear();
+                Application.Current.Resources.MergedDictionaries.Add(
+                    new ResourceDictionary { Source = new Uri("DarkTheme.xaml", UriKind.Relative) });
+            }
+            else
+            {
+                Application.Current.Resources.MergedDictionaries.Clear();
+                Application.Current.Resources.MergedDictionaries.Add(
+                    new ResourceDictionary { Source = new Uri("LightTheme.xaml", UriKind.Relative) });
             }
         }
 
@@ -128,5 +197,31 @@ namespace Google_Bookmarks_Manager_for_GPOs
         }
 
         #endregion Private Methods
+
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            JArray bookmarksArray = new JArray();
+            string topLevelName = bookmarkFolderNameTextBox.Text;
+            bookmarksArray.Add(new JObject(new JProperty("toplevel_name", topLevelName)));
+            foreach (Bookmark bookmark in bookmarks)
+            {
+                if (bookmark.Name != null || bookmark.Url != null) // check if the bookmark is not null
+                {
+                    JObject bookmarkObject = new JObject(new JProperty("name", bookmark.Name ?? ""), new JProperty("url", bookmark.Url ?? ""));
+                    bookmarksArray.Add(bookmarkObject);
+                }
+            }
+
+            // Convert the JSON object to a single line of text
+            var json = bookmarksArray.ToString(Formatting.None);
+
+            // Copy the JSON string to the clipboard
+            Clipboard.SetText(json);
+
+            // Show a confirmation message
+            MessageBox.Show("Bookmarks copied to clipboard!");
+        }
+
+
     }
 }
