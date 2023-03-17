@@ -9,25 +9,50 @@ using System.Windows;
 
 namespace Google_Bookmarks_Manager_for_GPOs
 {
-    public class Bookmark : INotifyPropertyChanged
+    public class Bookmark
     {
-        #region Private Fields
-
-       
-
-        #endregion Private Fields
-
-        #region Public Properties
+        
 
         public string Name { get; set; }
         public string Url { get; set; }
 
-       
+ 
+    }
 
-        #endregion Public Properties
+    public partial class MainWindow : Window
+    {
+        #region Private Fields
 
-        #region Private Methods
+        private List<Bookmark> bookmarks;
+        private string topLevelName;
+        public event PropertyChangedEventHandler PropertyChanged;
+        #endregion Private Fields
 
+        #region Public Constructors
+
+        private static bool _isDarkModeEnabled;
+
+        public MainWindow()
+        {
+            InitializeComponent();
+
+            // Set up the data context
+            bookmarks = new List<Bookmark>();
+            bookmarks.Add(new Bookmark());
+            bookmarksDataGrid.ItemsSource = bookmarks;
+            bookmarksDataGrid.CanUserAddRows = true;
+            DataContext = this;
+
+            // Add an event handler for the PropertyChanged event
+            PropertyChanged += MainWindow_PropertyChanged;
+        }
+        private void MainWindow_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(IsDarkModeEnabled))
+            {
+                UpdateTheme();
+            }
+        }
         private static void UpdateTheme()
         {
             if (IsDarkModeEnabled)
@@ -43,36 +68,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
                     new ResourceDictionary { Source = new Uri("LightTheme.xaml", UriKind.Relative) });
             }
         }
-
-        #endregion Private Methods
-
-        #region Public Events
-
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        #endregion Public Events
-
-        #region Private Methods
-
-        private void OnPropertyChanged(string propertyName)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
-
-        #endregion Private Methods
-    }
-
-    public partial class MainWindow : Window
-    {
-        #region Private Fields
-
-        private List<Bookmark> bookmarks;
-        private string topLevelName;
-
-        #endregion Private Fields
-
-        #region Public Constructors
-        private static bool _isDarkModeEnabled;
         public static bool IsDarkModeEnabled
         {
             get => _isDarkModeEnabled;
@@ -84,14 +79,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
                     UpdateTheme();
                 }
             }
-        }
-        public MainWindow()
-        {
-            InitializeComponent();
-            bookmarks = new List<Bookmark>();
-            bookmarks.Add(new Bookmark());
-            bookmarksDataGrid.ItemsSource = bookmarks;
-            bookmarksDataGrid.CanUserAddRows = true;
         }
 
         #endregion Public Constructors
@@ -149,21 +136,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 File.WriteAllText(saveFileDialog.FileName, json);
             }
         }
-        private void UpdateTheme()
-        {
-            if (IsDarkModeEnabled)
-            {
-                Application.Current.Resources.MergedDictionaries.Clear();
-                Application.Current.Resources.MergedDictionaries.Add(
-                    new ResourceDictionary { Source = new Uri("DarkTheme.xaml", UriKind.Relative) });
-            }
-            else
-            {
-                Application.Current.Resources.MergedDictionaries.Clear();
-                Application.Current.Resources.MergedDictionaries.Add(
-                    new ResourceDictionary { Source = new Uri("LightTheme.xaml", UriKind.Relative) });
-            }
-        }
 
         private void importBookmarksButton_Click(object sender, RoutedEventArgs e)
         {
@@ -196,6 +168,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
+        
         #endregion Private Methods
 
         private void Button_Click(object sender, RoutedEventArgs e)
@@ -222,6 +195,13 @@ namespace Google_Bookmarks_Manager_for_GPOs
             MessageBox.Show("Bookmarks copied to clipboard!");
         }
 
-
+        private void CheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            IsDarkModeEnabled = true;
+        }
+        private void DarkModeCheckBox_Unchecked(object sender, RoutedEventArgs e)
+        {
+            IsDarkModeEnabled = false;
+        }
     }
 }
