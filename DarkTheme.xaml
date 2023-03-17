@@ -11,9 +11,6 @@
     <SolidColorBrush x:Key="SecondaryColorBrush" Color="{StaticResource SecondaryColor}" />
     <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
 
-
-
-
     <!-- Styles -->
     <Style TargetType="Button">
         <Setter Property="Background" Value="{StaticResource PrimaryColorBrush}" />
@@ -28,5 +25,4 @@
     </Style>
 
     <!-- Add more styles and resources as needed for the dark theme -->
-
 </ResourceDictionary>

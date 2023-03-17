@@ -6,9 +6,14 @@
     <RootNamespace>Google_Bookmarks_Manager_for_GPOs</RootNamespace>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
-    <AssemblyVersion>1.0.0.47</AssemblyVersion>
-    <FileVersion>1.0.0.47</FileVersion>
+    <AssemblyVersion>1.0.0.49</AssemblyVersion>
+    <FileVersion>1.0.0.49</FileVersion>
+    <ApplicationIcon>book.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="book.png" />
+  </ItemGroup>
 
   <ItemGroup>
     <Page Remove="DarkTheme.xaml" />
@@ -16,10 +21,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="book.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="book.png" />
     <Resource Include="DarkTheme.xaml" />
     <Resource Include="LightTheme.xaml" />
   </ItemGroup>

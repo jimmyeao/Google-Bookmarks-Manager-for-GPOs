@@ -11,12 +11,12 @@ namespace Google_Bookmarks_Manager_for_GPOs
 {
     public class Bookmark
     {
-        
+        #region Public Properties
 
         public string Name { get; set; }
         public string Url { get; set; }
 
- 
+        #endregion Public Properties
     }
 
     public partial class MainWindow : Window
@@ -25,7 +25,9 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private List<Bookmark> bookmarks;
         private string topLevelName;
+
         public event PropertyChangedEventHandler PropertyChanged;
+
         #endregion Private Fields
 
         #region Public Constructors
@@ -46,13 +48,20 @@ namespace Google_Bookmarks_Manager_for_GPOs
             // Add an event handler for the PropertyChanged event
             PropertyChanged += MainWindow_PropertyChanged;
         }
-        private void MainWindow_PropertyChanged(object sender, PropertyChangedEventArgs e)
+
+        public static bool IsDarkModeEnabled
         {
-            if (e.PropertyName == nameof(IsDarkModeEnabled))
+            get => _isDarkModeEnabled;
+            set
             {
-                UpdateTheme();
+                if (_isDarkModeEnabled != value)
+                {
+                    _isDarkModeEnabled = value;
+                    UpdateTheme();
+                }
             }
         }
+
         private static void UpdateTheme()
         {
             if (IsDarkModeEnabled)
@@ -68,16 +77,12 @@ namespace Google_Bookmarks_Manager_for_GPOs
                     new ResourceDictionary { Source = new Uri("LightTheme.xaml", UriKind.Relative) });
             }
         }
-        public static bool IsDarkModeEnabled
+
+        private void MainWindow_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            get => _isDarkModeEnabled;
-            set
+            if (e.PropertyName == nameof(IsDarkModeEnabled))
             {
-                if (_isDarkModeEnabled != value)
-                {
-                    _isDarkModeEnabled = value;
-                    UpdateTheme();
-                }
+                UpdateTheme();
             }
         }
 
@@ -168,7 +173,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
-        
         #endregion Private Methods
 
         private void Button_Click(object sender, RoutedEventArgs e)
@@ -199,6 +203,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
         {
             IsDarkModeEnabled = true;
         }
+
         private void DarkModeCheckBox_Unchecked(object sender, RoutedEventArgs e)
         {
             IsDarkModeEnabled = false;
