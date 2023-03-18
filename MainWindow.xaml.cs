@@ -44,6 +44,13 @@ namespace Google_Bookmarks_Manager_for_GPOs
             bookmarksDataGrid.ItemsSource = bookmarks;
             bookmarksDataGrid.CanUserAddRows = true;
             DataContext = this;
+            // Clear the text boxes
+            bookmarkUrlTextBox.Clear();
+            bookmarkFolderNameTextBox.Clear();
+
+            // Clear the bookmarks list and refresh the data grid
+            bookmarks.Clear();
+            bookmarksDataGrid.Items.Refresh();
 
             // Add an event handler for the PropertyChanged event
             PropertyChanged += MainWindow_PropertyChanged;
