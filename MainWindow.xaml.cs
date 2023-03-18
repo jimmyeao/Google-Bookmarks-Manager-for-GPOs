@@ -241,7 +241,10 @@ namespace Google_Bookmarks_Manager_for_GPOs
             Clipboard.SetText(json);
 
             // Show a confirmation message
-            MessageBox.Show("Bookmarks copied to clipboard!");
+            ShowCustomMessageBox("Bookmarks copied to clipboard!", "Confirmation", MessageBoxButton.OK);
+
+
+
         }
 
         private void CheckBox_Checked(object sender, RoutedEventArgs e)
@@ -249,6 +252,16 @@ namespace Google_Bookmarks_Manager_for_GPOs
             var isDark = darkModeCheckBox.IsChecked.HasValue && darkModeCheckBox.IsChecked.Value;
             SwitchTheme(isDark);
         }
+        public static MessageBoxResult ShowCustomMessageBox(string message, string caption, MessageBoxButton buttons)
+        {
+            var customMessageBox = new CustomMessageBox(message, caption, buttons);
+            customMessageBox.Owner = Application.Current.MainWindow;
+            customMessageBox.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            customMessageBox.ShowDialog();
+            return customMessageBox.Result;
+        }
+
+
 
 
         private void CheckBox_Unchecked(object sender, RoutedEventArgs e)
