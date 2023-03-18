@@ -55,6 +55,44 @@ namespace Google_Bookmarks_Manager_for_GPOs
             // Add an event handler for the PropertyChanged event
             PropertyChanged += MainWindow_PropertyChanged;
         }
+        //private void SwitchTheme(bool isDark)
+        //{
+        //    var themeSource = isDark
+        //        ? "pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Dark.xaml"
+        //        : "pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Light.xaml";
+
+        //    var themeResource = Resources.MergedDictionaries
+        //        .Where(d => d.Source != null && (d.Source.OriginalString.Contains("MaterialDesignTheme.Light.xaml") || d.Source.OriginalString.Contains("MaterialDesignTheme.Dark.xaml")))
+        //        .FirstOrDefault();
+
+        //    if (themeResource != null)
+        //    {
+        //        Resources.MergedDictionaries.Remove(themeResource);
+        //    }
+
+        //    Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(themeSource) });
+        //}
+        private void SwitchTheme(bool isDark)
+        {
+            var themeSource = isDark
+                ? "pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Dark.xaml"
+                : "pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Light.xaml";
+
+            var themeResource = Application.Current.Resources.MergedDictionaries
+                .Where(d => d.Source != null && (d.Source.OriginalString.Contains("MaterialDesignTheme.Light.xaml") || d.Source.OriginalString.Contains("MaterialDesignTheme.Dark.xaml")))
+                .FirstOrDefault();
+
+            if (themeResource != null)
+            {
+                Application.Current.Resources.MergedDictionaries.Remove(themeResource);
+            }
+
+            Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(themeSource) });
+        }
+
+
+
+
 
         public static bool IsDarkModeEnabled
         {
@@ -208,12 +246,16 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private void CheckBox_Checked(object sender, RoutedEventArgs e)
         {
-            IsDarkModeEnabled = true;
+            var isDark = darkModeCheckBox.IsChecked.HasValue && darkModeCheckBox.IsChecked.Value;
+            SwitchTheme(isDark);
         }
 
-        private void DarkModeCheckBox_Unchecked(object sender, RoutedEventArgs e)
+
+        private void CheckBox_Unchecked(object sender, RoutedEventArgs e)
         {
-            IsDarkModeEnabled = false;
+            var isDark = darkModeCheckBox.IsChecked.HasValue && darkModeCheckBox.IsChecked.Value;
+            SwitchTheme(isDark);
         }
+
     }
 }

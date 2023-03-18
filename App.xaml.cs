@@ -19,8 +19,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         public App()
         {
-            darkTheme = new ResourceDictionary { Source = new Uri("DarkTheme.xaml", UriKind.Relative) };
-            lightTheme = new ResourceDictionary { Source = new Uri("LightTheme.xaml", UriKind.Relative) };
+   
         }
 
         #endregion Public Constructors
