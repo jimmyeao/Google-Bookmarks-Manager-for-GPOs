@@ -6,12 +6,33 @@
     <RootNamespace>Google_Bookmarks_Manager_for_GPOs</RootNamespace>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
-    <AssemblyVersion>1.0.0.37</AssemblyVersion>
-    <FileVersion>1.0.0.37</FileVersion>
+    <AssemblyVersion>1.0.0.72</AssemblyVersion>
+    <FileVersion>1.0.0.72</FileVersion>
+    <ApplicationIcon>book.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="book.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="book.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MaterialDesignColors" Version="2.1.2" />
+    <PackageReference Include="MaterialDesignThemes" Version="4.8.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="ShowMeTheXAML" Version="2.0.0" />
+    <PackageReference Include="ShowMeTheXAML.MSBuild" Version="2.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="book.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="ColorResources\" />
   </ItemGroup>
 
 </Project>

@@ -4,42 +4,54 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Google_Bookmarks_Manager_for_GPOs"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        Background="{DynamicResource MaterialDesignPaper}"
+        TextElement.FontWeight="Medium"
+        TextElement.FontSize="14"
+        FontFamily="{materialDesign:MaterialDesignFont}"
         mc:Ignorable="d"
-        Title="Google BookMarks for GPO" Height="450" Width="800">
+
+        Title="Google BookMarks for GPO" Height="450" Width="813" Icon="/book.png">
+
+
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="50" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="14.6" />
-            <ColumnDefinition Width="133.067" />
-            <ColumnDefinition Width="11*" />
-            <ColumnDefinition Width="641*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
 
-        <!-- Add controls here -->
+        <Label Grid.Row="0" Grid.Column="0" Content="Bookmark URL:" Margin="5,5,5,5" Style="{StaticResource MaterialDesignLabel}" />
+        <TextBox Grid.Row="0" Grid.Column="1" x:Name="bookmarkUrlTextBox" Margin="5,5,5,5" Grid.ColumnSpan="3" Style="{StaticResource MaterialDesignTextBox}" />
 
-        <Label Grid.Row="1" Grid.Column="0" Content="Bookmark URL:" Margin="5,5,5,5" Grid.ColumnSpan="2" />
-        <TextBox Grid.Row="1" Grid.Column="2" x:Name="bookmarkUrlTextBox" Margin="5,5,5,5" Grid.ColumnSpan="2" />
-
-        <DataGrid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" x:Name="bookmarksDataGrid" AutoGenerateColumns="False" Margin="5,5,5,5" CanUserAddRows="True">
+        <DataGrid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" x:Name="bookmarksDataGrid" AutoGenerateColumns="False" Margin="5,5,5,5" CanUserAddRows="True" Style="{StaticResource MaterialDesignDataGrid}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Bookmark Name" Binding="{Binding Name}" Width="*" />
                 <DataGridTextColumn Header="Bookmark URL" Binding="{Binding Url}" Width="*" />
             </DataGrid.Columns>
         </DataGrid>
 
-        <Label Grid.Row="2" Grid.Column="0" Content="Bookmark Folder Name:" Margin="5,5,5,5" Grid.ColumnSpan="2" />
-        <TextBox Grid.Row="2" Grid.Column="2" x:Name="bookmarkFolderNameTextBox" Margin="5,5,5,5" Grid.ColumnSpan="2" />
+        <Label Grid.Row="2" Grid.Column="0" Content="Bookmark Folder Name:" Margin="5,5,5,5" Style="{StaticResource MaterialDesignLabel}" />
+        <TextBox Grid.Row="2" Grid.Column="1" x:Name="bookmarkFolderNameTextBox" Margin="5,5,5,5" Grid.ColumnSpan="3" Style="{StaticResource MaterialDesignTextBox}" />
 
-        <Button Grid.Row="3" Grid.Column="0" x:Name="exportBookmarksButton" Content="Export Bookmarks" Margin="5,5,5,5" Click="exportBookmarksButton_Click_1" Grid.ColumnSpan="2" />
+        <Button Grid.Row="3" Grid.Column="0" x:Name="exportBookmarksButton" Content="Export Bookmarks" Margin="5,5,5,5" Click="exportBookmarksButton_Click_1" Style="{StaticResource MaterialDesignRaisedButton}" />
 
-        <StackPanel Grid.Row="2" Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Left" Margin="425,36,0,0" Grid.RowSpan="2">
-            <Button x:Name="importBookmarksButton" Content="Import Bookmarks" Margin="5" Click="importBookmarksButton_Click" VerticalAlignment="Center" Height="38" />
-            <Button Grid.Row="3" Grid.Column="1" x:Name="clearFormButton" Content="Clear Form" Margin="5" Click="clearFormButton_Click" VerticalAlignment="Center" Height="38" Width="94" />
+        <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+            <Button x:Name="importBookmarksButton" Content="Import Bookmarks" Margin="5" Click="importBookmarksButton_Click" Style="{StaticResource MaterialDesignRaisedButton}" />
+            <Button x:Name="clearFormButton" Content="Clear Form" Margin="5" Click="clearFormButton_Click" Style="{StaticResource MaterialDesignRaisedButton}" />
         </StackPanel>
+
+        <Button Grid.Row="3" Grid.Column="2" x:Name="exportClipboardButton" Content="Export Clipboard" Margin="5,5,5,5" Click="Button_Click" Style="{StaticResource MaterialDesignRaisedButton}" />
+
+        <CheckBox Grid.Row="3" Grid.Column="3" x:Name="darkModeCheckBox" Content="Dark Mode" Margin="5,5,5,5" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" Style="{StaticResource MaterialDesignCheckBox}" />
     </Grid>
 </Window>
