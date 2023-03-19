@@ -1,5 +1,4 @@
-﻿using System;
-using System.Windows;
+﻿using System.Windows;
 
 namespace Google_Bookmarks_Manager_for_GPOs
 {
@@ -19,7 +18,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         public App()
         {
-   
         }
 
         #endregion Public Constructors

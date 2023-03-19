@@ -55,6 +55,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             // Add an event handler for the PropertyChanged event
             PropertyChanged += MainWindow_PropertyChanged;
         }
+
         //private void SwitchTheme(bool isDark)
         //{
         //    var themeSource = isDark
@@ -69,30 +70,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
         //    {
         //        Resources.MergedDictionaries.Remove(themeResource);
         //    }
-
-        //    Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(themeSource) });
-        //}
-        private void SwitchTheme(bool isDark)
-        {
-            var themeSource = isDark
-                ? "pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Dark.xaml"
-                : "pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Light.xaml";
-
-            var themeResource = Application.Current.Resources.MergedDictionaries
-                .Where(d => d.Source != null && (d.Source.OriginalString.Contains("MaterialDesignTheme.Light.xaml") || d.Source.OriginalString.Contains("MaterialDesignTheme.Dark.xaml")))
-                .FirstOrDefault();
-
-            if (themeResource != null)
-            {
-                Application.Current.Resources.MergedDictionaries.Remove(themeResource);
-            }
-
-            Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(themeSource) });
-        }
-
-
-
-
 
         public static bool IsDarkModeEnabled
         {
@@ -129,6 +106,26 @@ namespace Google_Bookmarks_Manager_for_GPOs
             {
                 UpdateTheme();
             }
+        }
+
+        //    Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(themeSource) });
+        //}
+        private void SwitchTheme(bool isDark)
+        {
+            var themeSource = isDark
+                ? "pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Dark.xaml"
+                : "pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Light.xaml";
+
+            var themeResource = Application.Current.Resources.MergedDictionaries
+                .Where(d => d.Source != null && (d.Source.OriginalString.Contains("MaterialDesignTheme.Light.xaml") || d.Source.OriginalString.Contains("MaterialDesignTheme.Dark.xaml")))
+                .FirstOrDefault();
+
+            if (themeResource != null)
+            {
+                Application.Current.Resources.MergedDictionaries.Remove(themeResource);
+            }
+
+            Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(themeSource) });
         }
 
         #endregion Public Constructors
@@ -220,6 +217,19 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         #endregion Private Methods
 
+        #region Public Methods
+
+        public static MessageBoxResult ShowCustomMessageBox(string message, string caption, MessageBoxButton buttons)
+        {
+            var customMessageBox = new CustomMessageBox(message, caption, buttons);
+            customMessageBox.Owner = Application.Current.MainWindow;
+            customMessageBox.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            customMessageBox.ShowDialog();
+            return customMessageBox.Result;
+        }
+
+        #endregion Public Methods
+
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             JArray bookmarksArray = new JArray();
@@ -242,9 +252,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             // Show a confirmation message
             ShowCustomMessageBox("Bookmarks copied to clipboard!", "Confirmation", MessageBoxButton.OK);
-
-
-
         }
 
         private void CheckBox_Checked(object sender, RoutedEventArgs e)
@@ -252,23 +259,11 @@ namespace Google_Bookmarks_Manager_for_GPOs
             var isDark = darkModeCheckBox.IsChecked.HasValue && darkModeCheckBox.IsChecked.Value;
             SwitchTheme(isDark);
         }
-        public static MessageBoxResult ShowCustomMessageBox(string message, string caption, MessageBoxButton buttons)
-        {
-            var customMessageBox = new CustomMessageBox(message, caption, buttons);
-            customMessageBox.Owner = Application.Current.MainWindow;
-            customMessageBox.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-            customMessageBox.ShowDialog();
-            return customMessageBox.Result;
-        }
-
-
-
 
         private void CheckBox_Unchecked(object sender, RoutedEventArgs e)
         {
             var isDark = darkModeCheckBox.IsChecked.HasValue && darkModeCheckBox.IsChecked.Value;
             SwitchTheme(isDark);
         }
-
     }
 }

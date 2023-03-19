@@ -13,11 +13,10 @@
         mc:Ignorable="d"
         Title="CustomMessageBox" Height="200" Width="400">
 
-
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <TextBlock Name="MessageTextBlock" Text="Message" Margin="20" TextWrapping="Wrap" />
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20">
