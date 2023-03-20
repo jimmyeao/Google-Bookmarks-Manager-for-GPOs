@@ -32,11 +32,9 @@
 
         <DataGrid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" x:Name="bookmarksDataGrid" AutoGenerateColumns="False" Margin="5,5,5,5" CanUserAddRows="True" Style="{StaticResource MaterialDesignDataGrid}">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Bookmark Folder Name" Binding="{Binding FolderName}" Width="*" />
                 <DataGridTextColumn Header="Bookmark Name" Binding="{Binding Name}" Width="*" />
                 <DataGridTextColumn Header="Bookmark URL" Binding="{Binding Url}" Width="*" />
             </DataGrid.Columns>
-
         </DataGrid>
 
         <Label Grid.Row="2" Grid.Column="0" Content="Bookmark Folder Name:" Margin="5,5,5,5" Style="{StaticResource MaterialDesignLabel}" />

@@ -1,5 +1,4 @@
-﻿using Microsoft.Win32;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -10,15 +9,15 @@ using System.Windows;
 
 namespace Google_Bookmarks_Manager_for_GPOs
 {
-
     public class Bookmark
     {
-        public string FolderName { get; set; }
+        #region Public Properties
+
         public string Name { get; set; }
         public string Url { get; set; }
+
+        #endregion Public Properties
     }
-
-
 
     public partial class MainWindow : Window
     {
@@ -57,7 +56,20 @@ namespace Google_Bookmarks_Manager_for_GPOs
             PropertyChanged += MainWindow_PropertyChanged;
         }
 
+        //private void SwitchTheme(bool isDark)
+        //{
+        //    var themeSource = isDark
+        //        ? "pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Dark.xaml"
+        //        : "pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Light.xaml";
 
+        //    var themeResource = Resources.MergedDictionaries
+        //        .Where(d => d.Source != null && (d.Source.OriginalString.Contains("MaterialDesignTheme.Light.xaml") || d.Source.OriginalString.Contains("MaterialDesignTheme.Dark.xaml")))
+        //        .FirstOrDefault();
+
+        //    if (themeResource != null)
+        //    {
+        //        Resources.MergedDictionaries.Remove(themeResource);
+        //    }
 
         public static bool IsDarkModeEnabled
         {
@@ -96,7 +108,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
-     
+        //    Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(themeSource) });
+        //}
         private void SwitchTheme(bool isDark)
         {
             var themeSource = isDark
@@ -145,7 +158,19 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private void exportBookmarksButton_Click_1(object sender, RoutedEventArgs e)
         {
-            JArray bookmarksArray = BuildBookmarksArray();
+            // Create a new JSON object with an array of bookmarks
+            JArray bookmarksArray = new JArray();
+            string topLevelName = bookmarkFolderNameTextBox.Text;
+            bookmarksArray.Add(new JObject(new JProperty("toplevel_name", topLevelName)));
+            foreach (Bookmark bookmark in bookmarks)
+            {
+                if (bookmark.Name != null || bookmark.Url != null) // check if the bookmark is not null
+
+                {
+                    JObject bookmarkObject = new JObject(new JProperty("name", bookmark.Name ?? ""), new JProperty("url", bookmark.Url ?? ""));
+                    bookmarksArray.Add(bookmarkObject);
+                }
+            }
 
             // Convert the JSON object to a single line of text
             var json = bookmarksArray.ToString(Formatting.None);
@@ -159,69 +184,36 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
-
         private void importBookmarksButton_Click(object sender, RoutedEventArgs e)
         {
             var importWindow = new ImportWindow();
             if (importWindow.ShowDialog() == true)
             {
-                string jsonContent = importWindow.Json;
-                List<Bookmark> bookmarksList = ParseBookmarks(jsonContent);
-                bookmarks = bookmarksList;
+                ParseBookmarks(importWindow.Json);
+            }
+        }
+
+        private void ParseBookmarks(string json)
+        {
+            try
+            {
+                var parsedJson = JArray.Parse(json);
+
+                topLevelName = parsedJson.First["toplevel_name"].ToString();
+                bookmarkFolderNameTextBox.Text = topLevelName;
+
+                bookmarks = JsonConvert.DeserializeObject<List<Bookmark>>(parsedJson.ToString());
+
+                // Remove the first element from the bookmarks list
+                bookmarks.RemoveAt(0);
+
                 bookmarksDataGrid.ItemsSource = bookmarks;
             }
-        }
-
-
-        public List<Bookmark> ParseBookmarks(string jsonContent)
-        {
-            var bookmarksData = JsonConvert.DeserializeObject<JArray>(jsonContent);
-            List<Bookmark> bookmarksList = new List<Bookmark>();
-
-            string folderName = "Bookmarks"; // Set default folder name
-
-            foreach (var item in bookmarksData)
+            catch (Exception ex)
             {
-                if (item["toplevel_name"] != null)
-                {
-                    folderName = item["toplevel_name"].ToString();
-                }
-                else if (item["name"] != null && item["url"] != null)
-                {
-                    Bookmark bookmark = new Bookmark
-                    {
-                        FolderName = folderName,
-                        Name = item["name"].ToString(),
-                        Url = item["url"].ToString()
-                    };
-                    bookmarksList.Add(bookmark);
-                }
-                else if (item["name"] != null && item["children"] != null)
-                {
-                    string subFolderName = item["name"].ToString();
-                    JArray children = (JArray)item["children"];
-
-                    foreach (var child in children)
-                    {
-                        if (child["name"] != null && child["url"] != null)
-                        {
-                            Bookmark childBookmark = new Bookmark
-                            {
-                                FolderName = subFolderName,
-                                Name = child["name"].ToString(),
-                                Url = child["url"].ToString()
-                            };
-                            bookmarksList.Add(childBookmark);
-                        }
-                    }
-                }
+                MessageBox.Show("Error parsing bookmarks: " + ex.Message);
             }
-
-            return bookmarksList;
         }
-
-
-
 
         #endregion Private Methods
 
@@ -240,7 +232,17 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
-            JArray bookmarksArray = BuildBookmarksArray();
+            JArray bookmarksArray = new JArray();
+            string topLevelName = bookmarkFolderNameTextBox.Text;
+            bookmarksArray.Add(new JObject(new JProperty("toplevel_name", topLevelName)));
+            foreach (Bookmark bookmark in bookmarks)
+            {
+                if (bookmark.Name != null || bookmark.Url != null) // check if the bookmark is not null
+                {
+                    JObject bookmarkObject = new JObject(new JProperty("name", bookmark.Name ?? ""), new JProperty("url", bookmark.Url ?? ""));
+                    bookmarksArray.Add(bookmarkObject);
+                }
+            }
 
             // Convert the JSON object to a single line of text
             var json = bookmarksArray.ToString(Formatting.None);
@@ -251,7 +253,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             // Show a confirmation message
             ShowCustomMessageBox("Bookmarks copied to clipboard!", "Confirmation", MessageBoxButton.OK);
         }
-
 
         private void CheckBox_Checked(object sender, RoutedEventArgs e)
         {
@@ -264,39 +265,5 @@ namespace Google_Bookmarks_Manager_for_GPOs
             var isDark = darkModeCheckBox.IsChecked.HasValue && darkModeCheckBox.IsChecked.Value;
             SwitchTheme(isDark);
         }
-        private JArray BuildBookmarksArray()
-        {
-            var groupedBookmarks = bookmarks.GroupBy(b => b.FolderName);
-            JArray bookmarksArray = new JArray();
-
-            foreach (var group in groupedBookmarks)
-            {
-                if (group.Key == "Bookmarks")
-                {
-                    foreach (var bookmark in group)
-                    {
-                        JObject bookmarkObject = new JObject(new JProperty("name", bookmark.Name), new JProperty("url", bookmark.Url));
-                        bookmarksArray.Add(bookmarkObject);
-                    }
-                }
-                else
-                {
-                    JObject subFolder = new JObject(new JProperty("name", group.Key));
-                    JArray children = new JArray();
-
-                    foreach (var bookmark in group)
-                    {
-                        JObject bookmarkObject = new JObject(new JProperty("name", bookmark.Name), new JProperty("url", bookmark.Url));
-                        children.Add(bookmarkObject);
-                    }
-
-                    subFolder.Add(new JProperty("children", children));
-                    bookmarksArray.Add(subFolder);
-                }
-            }
-
-            return bookmarksArray;
-        }
-
     }
 }
