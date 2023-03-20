@@ -41,7 +41,7 @@
         <Label Grid.Row="2" Grid.Column="0" Content="Bookmark Folder Name:" Margin="5,5,5,5" Style="{StaticResource MaterialDesignLabel}" />
         <TextBox Grid.Row="2" Grid.Column="1" x:Name="bookmarkFolderNameTextBox" Margin="5,5,5,5" Grid.ColumnSpan="3" Style="{StaticResource MaterialDesignTextBox}" />
 
-        <Button Grid.Row="3" Grid.Column="0" x:Name="exportBookmarksButton" Content="Export Bookmarks" Margin="5,5,5,5" Click="exportBookmarksButton_Click_1" Style="{StaticResource MaterialDesignRaisedButton}" />
+        <Button Grid.Row="3" Grid.Column="0" x:Name="exportBookmarksButton" Content="Export Bookmarks" Margin="5,5,5,5" Click="exportBookmarksButton_Click" Style="{StaticResource MaterialDesignRaisedButton}" />
 
         <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
             <Button x:Name="importBookmarksButton" Content="Import Bookmarks" Margin="5" Click="importBookmarksButton_Click" Style="{StaticResource MaterialDesignRaisedButton}" />
