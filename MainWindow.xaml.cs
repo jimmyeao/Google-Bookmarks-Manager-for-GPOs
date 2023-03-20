@@ -292,9 +292,9 @@ namespace Google_Bookmarks_Manager_for_GPOs
                         };
                         bookmarksArray.Add(folderObject);
                     }
-                    // End of foreach loop iterating over groupedBookmarks
-                } // End of if (childrenArray.Count > 0)
-            } // End of foreach loop iterating over groupedBookmarks
+                    
+                } 
+            } 
 
             return bookmarksArray;
         }
