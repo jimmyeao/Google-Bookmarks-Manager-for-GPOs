@@ -145,7 +145,9 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private void exportBookmarksButton_Click_1(object sender, RoutedEventArgs e)
         {
-            JArray bookmarksArray = BuildBookmarksArray();
+            //JArray bookmarksArray = BuildBookmarksArray();
+            JArray bookmarksArray = BuildBookmarksArray(bookmarksDataGrid.ItemsSource.Cast<Bookmark>());
+
 
             // Convert the JSON object to a single line of text
             var json = bookmarksArray.ToString(Formatting.None);
@@ -166,9 +168,17 @@ namespace Google_Bookmarks_Manager_for_GPOs
             if (importWindow.ShowDialog() == true)
             {
                 string jsonContent = importWindow.Json;
-                List<Bookmark> bookmarksList = ParseBookmarks(jsonContent);
-                bookmarks = bookmarksList;
-                bookmarksDataGrid.ItemsSource = bookmarks;
+                try
+                {
+                
+                    List<Bookmark> bookmarksList = ParseBookmarks(jsonContent);
+                    bookmarks = bookmarksList;
+                    bookmarksDataGrid.ItemsSource = bookmarks;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("An error occurred while importing bookmarks. Please ensure the JSON is valid. Error: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
         }
 
@@ -240,7 +250,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
-            JArray bookmarksArray = BuildBookmarksArray();
+            JArray bookmarksArray = BuildBookmarksArray(bookmarks);
+
 
             // Convert the JSON object to a single line of text
             var json = bookmarksArray.ToString(Formatting.None);
@@ -264,39 +275,82 @@ namespace Google_Bookmarks_Manager_for_GPOs
             var isDark = darkModeCheckBox.IsChecked.HasValue && darkModeCheckBox.IsChecked.Value;
             SwitchTheme(isDark);
         }
-        private JArray BuildBookmarksArray()
+        //private JArray BuildBookmarksArray()
+        //{
+        //    var groupedBookmarks = bookmarks.GroupBy(b => b.FolderName);
+        //    JArray bookmarksArray = new JArray();
+
+        //    foreach (var group in groupedBookmarks)
+        //    {
+        //        if (group.Key == "Bookmarks")
+        //        {
+        //            foreach (var bookmark in group)
+        //            {
+        //                JObject bookmarkObject = new JObject(new JProperty("name", bookmark.Name), new JProperty("url", bookmark.Url));
+        //                bookmarksArray.Add(bookmarkObject);
+        //            }
+        //        }
+        //        else
+        //        {
+        //            JObject subFolder = new JObject(new JProperty("name", group.Key));
+        //            JArray children = new JArray();
+
+        //            foreach (var bookmark in group)
+        //            {
+        //                JObject bookmarkObject = new JObject(new JProperty("name", bookmark.Name), new JProperty("url", bookmark.Url));
+        //                children.Add(bookmarkObject);
+        //            }
+
+        //            subFolder.Add(new JProperty("children", children));
+        //            bookmarksArray.Add(subFolder);
+        //        }
+        //    }
+
+        //    return bookmarksArray;
+        //}
+        private JArray BuildBookmarksArray(IEnumerable<Bookmark> bookmarksList)
         {
-            var groupedBookmarks = bookmarks.GroupBy(b => b.FolderName);
-            JArray bookmarksArray = new JArray();
+            var bookmarksArray = new JArray();
+
+            // Group bookmarks by folder name
+            var groupedBookmarks = bookmarksList.GroupBy(x => x.FolderName);
 
             foreach (var group in groupedBookmarks)
             {
+                JArray childrenArray = new JArray();
+                foreach (var bookmark in group)
+                {
+                    JObject bookmarkObject = new JObject
+                    {
+                        ["name"] = bookmark.Name,
+                        ["url"] = bookmark.Url
+                    };
+                    childrenArray.Add(bookmarkObject);
+                }
+
+                // If the group key is "Bookmarks", add bookmarks directly to the bookmarksArray
                 if (group.Key == "Bookmarks")
                 {
-                    foreach (var bookmark in group)
+                    foreach (var child in childrenArray)
                     {
-                        JObject bookmarkObject = new JObject(new JProperty("name", bookmark.Name), new JProperty("url", bookmark.Url));
-                        bookmarksArray.Add(bookmarkObject);
+                        bookmarksArray.Add(child);
                     }
                 }
                 else
                 {
-                    JObject subFolder = new JObject(new JProperty("name", group.Key));
-                    JArray children = new JArray();
-
-                    foreach (var bookmark in group)
+                    // Create a new folder object and add the children array to it
+                    JObject folderObject = new JObject
                     {
-                        JObject bookmarkObject = new JObject(new JProperty("name", bookmark.Name), new JProperty("url", bookmark.Url));
-                        children.Add(bookmarkObject);
-                    }
-
-                    subFolder.Add(new JProperty("children", children));
-                    bookmarksArray.Add(subFolder);
+                        ["name"] = group.Key,
+                        ["children"] = childrenArray
+                    };
+                    bookmarksArray.Add(folderObject);
                 }
             }
 
             return bookmarksArray;
         }
+
 
     }
 }
