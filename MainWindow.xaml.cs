@@ -46,7 +46,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             bookmarksDataGrid.CanUserAddRows = true;
             DataContext = this;
             // Clear the text boxes
-            bookmarkUrlTextBox.Clear();
+            
             bookmarkFolderNameTextBox.Clear();
 
             // Clear the bookmarks list and refresh the data grid
@@ -132,7 +132,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private void clearFormButton_Click(object sender, RoutedEventArgs e)
         {
             // Clear the text boxes
-            bookmarkUrlTextBox.Clear();
+            
             bookmarkFolderNameTextBox.Clear();
 
             // Clear the bookmarks list and refresh the data grid
