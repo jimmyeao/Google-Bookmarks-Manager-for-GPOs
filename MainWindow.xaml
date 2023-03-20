@@ -48,7 +48,7 @@
             <Button x:Name="clearFormButton" Content="Clear Form" Margin="5" Click="clearFormButton_Click" Style="{StaticResource MaterialDesignRaisedButton}" />
         </StackPanel>
 
-        <Button Grid.Row="3" Grid.Column="2" x:Name="exportClipboardButton" Content="Export Clipboard" Margin="5,5,5,5" Click="Button_Click" Style="{StaticResource MaterialDesignRaisedButton}" />
+        <Button Grid.Row="3" Grid.Column="2" x:Name="exportClipboardButton" Content="Export Clipboard" Margin="5,5,5,5" Click="ExportClipboardButton_Click" Style="{StaticResource MaterialDesignRaisedButton}" />
 
         <CheckBox Grid.Row="3" Grid.Column="3" x:Name="darkModeCheckBox" Content="Dark Mode" Margin="5,5,5,5" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" Style="{StaticResource MaterialDesignCheckBox}" />
     </Grid>

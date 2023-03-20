@@ -116,52 +116,90 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         #region Private Methods
 
-        //public List<Bookmark> ParseBookmarks(string jsonContent)
-        //{
-        //    var bookmarksData = JsonConvert.DeserializeObject<JArray>(jsonContent);
-        //    List<Bookmark> bookmarksList = new List<Bookmark>();
+        private void addBookmarkButton_Click(object sender, RoutedEventArgs e)
+        {
+        }
 
-        //    string folderName = "Bookmarks"; // Set default folder name
+        private void bookmarksDataGrid_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (bookmarks.Any())
+            {
+                bookmarks.RemoveAt(0);
+                bookmarksDataGrid.Items.Refresh();
+            }
+        }
 
-        //    foreach (var item in bookmarksData)
-        //    {
-        //        if (item["toplevel_name"] != null)
-        //        {
-        //            folderName = item["toplevel_name"].ToString();
-        //        }
-        //        else if (item["name"] != null && item["url"] != null)
-        //        {
-        //            Bookmark bookmark = new Bookmark
-        //            {
-        //                FolderName = folderName,
-        //                Name = item["name"].ToString(),
-        //                Url = item["url"].ToString()
-        //            };
-        //            bookmarksList.Add(bookmark);
-        //        }
-        //        else if (item["name"] != null && item["children"] != null)
-        //        {
-        //            string subFolderName = item["name"].ToString();
-        //            JArray children = (JArray)item["children"];
+        private void clearFormButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Clear the text boxes
+            bookmarkUrlTextBox.Clear();
+            bookmarkFolderNameTextBox.Clear();
 
-        //            foreach (var child in children)
-        //            {
-        //                if (child["name"] != null && child["url"] != null)
-        //                {
-        //                    Bookmark childBookmark = new Bookmark
-        //                    {
-        //                        FolderName = subFolderName,
-        //                        Name = child["name"].ToString(),
-        //                        Url = child["url"].ToString()
-        //                    };
-        //                    bookmarksList.Add(childBookmark);
-        //                }
-        //            }
-        //        }
-        //    }
+            // Clear the bookmarks list and refresh the data grid
+            bookmarks.Clear();
+            bookmarksDataGrid.Items.Refresh();
+        }
 
-        //    return bookmarksList;
-        //}
+        private void exportBookmarksButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (bookmarks != null)
+            {
+                try
+                {
+                    string parentFolderName = bookmarkFolderNameTextBox.Text;
+                    JArray bookmarksArray = BuildBookmarksArray(bookmarks, parentFolderName);
+                    string json = bookmarksArray.ToString(Formatting.Indented);
+                    var saveFileDialog = new Microsoft.Win32.SaveFileDialog();
+                    saveFileDialog.Filter = "Bookmark Files (*.json)|*.json";
+                    if (saveFileDialog.ShowDialog() == true)
+                    {
+                        File.WriteAllText(saveFileDialog.FileName, json);
+                    }
+
+                    ShowCustomMessageBox("Bookmarks exported successfully", "Confirmation", MessageBoxButton.OK);
+                }
+                catch (Exception ex)
+                {
+                    ShowCustomMessageBox("An error occurred while exporting bookmarks.Error: " + ex.Message, "Error", MessageBoxButton.OK);
+                }
+            }
+            else
+            {
+                ShowCustomMessageBox("No bookmarks to export.", "Warning", MessageBoxButton.OK);
+            }
+        }
+
+        private void importBookmarksButton_Click(object sender, RoutedEventArgs e)
+        {
+            var importWindow = new ImportWindow();
+            if (importWindow.ShowDialog() == true)
+            {
+                string jsonContent = importWindow.Json;
+                try
+                {
+                    List<Bookmark> bookmarksList = ParseBookmarks(jsonContent);
+                    bookmarks = bookmarksList;
+                    bookmarksDataGrid.ItemsSource = bookmarks;
+
+                    // Set the top-level folder name in the bookmarkFolderNameTextBox control
+                    JArray jsonArray = JArray.Parse(jsonContent);
+                    var topLevelFolder = jsonArray.FirstOrDefault(jo => jo["toplevel_name"] != null);
+                    if (topLevelFolder != null)
+                    {
+                        bookmarkFolderNameTextBox.Text = topLevelFolder["toplevel_name"].ToString();
+                    }
+                    else
+                    {
+                        bookmarkFolderNameTextBox.Text = "Bookmarks";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("An error occurred while importing bookmarks. Please ensure the JSON is valid. Error: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
         private List<Bookmark> ParseBookmarks(string json)
         {
             JArray jsonArray = JArray.Parse(json);
@@ -207,90 +245,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             return bookmarksList;
         }
 
-
-
-
-
-        private void addBookmarkButton_Click(object sender, RoutedEventArgs e)
-        {
-        }
-
-        private void bookmarksDataGrid_Loaded(object sender, RoutedEventArgs e)
-        {
-            if (bookmarks.Any())
-            {
-                bookmarks.RemoveAt(0);
-                bookmarksDataGrid.Items.Refresh();
-            }
-        }
-
-        private void clearFormButton_Click(object sender, RoutedEventArgs e)
-        {
-            // Clear the text boxes
-            bookmarkUrlTextBox.Clear();
-            bookmarkFolderNameTextBox.Clear();
-
-            // Clear the bookmarks list and refresh the data grid
-            bookmarks.Clear();
-            bookmarksDataGrid.Items.Refresh();
-        }
-
-        private void exportBookmarksButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (bookmarks != null)
-            {
-                try
-                {
-                    string parentFolderName = bookmarkFolderNameTextBox.Text;
-                    JArray bookmarksArray = BuildBookmarksArray(bookmarks, parentFolderName);
-                    string json = bookmarksArray.ToString(Formatting.Indented);
-                    File.WriteAllText("bookmarks_export.json", json);
-                    MessageBox.Show("Bookmarks exported successfully.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("An error occurred while exporting bookmarks. Error: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-            else
-            {
-                MessageBox.Show("No bookmarks to export.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }
-
-
-        private void importBookmarksButton_Click(object sender, RoutedEventArgs e)
-        {
-            var importWindow = new ImportWindow();
-            if (importWindow.ShowDialog() == true)
-            {
-                string jsonContent = importWindow.Json;
-                try
-                {
-                    List<Bookmark> bookmarksList = ParseBookmarks(jsonContent);
-                    bookmarks = bookmarksList;
-                    bookmarksDataGrid.ItemsSource = bookmarks;
-
-                    // Set the top-level folder name in the bookmarkFolderNameTextBox control
-                    JArray jsonArray = JArray.Parse(jsonContent);
-                    var topLevelFolder = jsonArray.FirstOrDefault(jo => jo["toplevel_name"] != null);
-                    if (topLevelFolder != null)
-                    {
-                        bookmarkFolderNameTextBox.Text = topLevelFolder["toplevel_name"].ToString();
-                    }
-                    else
-                    {
-                        bookmarkFolderNameTextBox.Text = "Bookmarks";
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("An error occurred while importing bookmarks. Please ensure the JSON is valid. Error: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-        }
-
-
         #endregion Private Methods
 
         #region Public Methods
@@ -332,18 +286,23 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
                 if (childrenArray.Count > 0)
                 {
-                    // If the group key is equal to the parent folder name, add bookmarks directly to the bookmarksArray
+                    // If the group key is equal to the parent folder name, add bookmarks directly
+                    // to the bookmarksArray
                     if (group.Key == parentFolderName)
                     {
                         if (!topLevelFolderAdded)
                         {
                             JObject topLevelFolder = new JObject
                             {
-                                ["name"] = parentFolderName,
-                                ["children"] = childrenArray
+                                ["toplevel_name"] = parentFolderName,
+                               // ["children"] = childrenArray
                             };
                             bookmarksArray.Add(topLevelFolder);
                             topLevelFolderAdded = true;
+                            foreach (var child in childrenArray)
+                            {
+                                bookmarksArray.Add(child);
+                            }
                         }
                         else
                         {
@@ -369,12 +328,21 @@ namespace Google_Bookmarks_Manager_for_GPOs
             return bookmarksArray;
         }
 
+        private void CheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            var isDark = darkModeCheckBox.IsChecked.HasValue && darkModeCheckBox.IsChecked.Value;
+            SwitchTheme(isDark);
+        }
 
+        private void CheckBox_Unchecked(object sender, RoutedEventArgs e)
+        {
+            var isDark = darkModeCheckBox.IsChecked.HasValue && darkModeCheckBox.IsChecked.Value;
+            SwitchTheme(isDark);
+        }
 
-        private void Button_Click(object sender, RoutedEventArgs e)
+        private void ExportClipboardButton_Click(object sender, RoutedEventArgs e)
         {
             string parentFolderName = string.IsNullOrEmpty(bookmarkFolderNameTextBox.Text) ? "Bookmarks" : bookmarkFolderNameTextBox.Text;
-           
 
             JArray bookmarksArray = BuildBookmarksArray(bookmarks, parentFolderName);
 
@@ -386,18 +354,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             // Show a confirmation message
             ShowCustomMessageBox("Bookmarks copied to clipboard!", "Confirmation", MessageBoxButton.OK);
-        }
-
-        private void CheckBox_Checked(object sender, RoutedEventArgs e)
-        {
-            var isDark = darkModeCheckBox.IsChecked.HasValue && darkModeCheckBox.IsChecked.Value;
-            SwitchTheme(isDark);
-        }
-
-        private void CheckBox_Unchecked(object sender, RoutedEventArgs e)
-        {
-            var isDark = darkModeCheckBox.IsChecked.HasValue && darkModeCheckBox.IsChecked.Value;
-            SwitchTheme(isDark);
         }
     }
 }
