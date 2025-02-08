@@ -79,6 +79,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
+
         protected void OnPropertyChanged(string propertyName)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -113,6 +114,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private Bookmark _draggedBookmark;
         private string _topLevelBookmarkFolderName;
+
         public string TopLevelBookmarkFolderName
         {
             get => _topLevelBookmarkFolderName;
@@ -122,6 +124,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 OnPropertyChanged(nameof(TopLevelBookmarkFolderName));
             }
         }
+
         public ObservableCollection<Bookmark> Bookmarks
         {
             get => _bookmarks;
@@ -154,7 +157,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         #region Private Methods
 
-
         private void TreeView_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             var treeView = sender as TreeView;
@@ -165,6 +167,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 DragDrop.DoDragDrop(treeView, item, DragDropEffects.Move);
             }
         }
+
         private void TextBlock_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             var currentTime = DateTime.Now;
@@ -178,7 +181,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             _lastClickTime = currentTime;
         }
 
-    
         private void TextBlock_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             if (sender is TextBlock textBlock && textBlock.DataContext is Bookmark bookmark)
@@ -186,6 +188,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 bookmark.IsEditing = true;
             }
         }
+
         private void TextBlock_MouseDown(object sender, MouseButtonEventArgs e)
         {
             if (e.ClickCount == 2 && sender is TextBlock textBlock && textBlock.DataContext is Bookmark bookmark)
@@ -201,6 +204,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 bookmark.IsEditing = false;
             }
         }
+
         private void BookmarksTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
             if (e.NewValue is Bookmark selectedBookmark)
@@ -226,6 +230,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 MessageBox.Show("Bookmark updated!");
             }
         }
+
         private void TreeView_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Delete && BookmarksTreeView.SelectedItem is Bookmark selected)
@@ -241,6 +246,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 DeleteBookmark(selected);
             }
         }
+
         private void BookmarksTreeView_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
             TreeViewItem item = GetNearestContainer(e.OriginalSource as DependencyObject);
@@ -277,17 +283,19 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             contextMenu.IsOpen = true;
         }
+
         public class RelayCommand : ICommand
         {
             private readonly Action _execute;
+
             public RelayCommand(Action execute) => _execute = execute;
 
             public event EventHandler CanExecuteChanged;
+
             public bool CanExecute(object parameter) => true;
+
             public void Execute(object parameter) => _execute();
         }
-
-
 
         private void DeleteBookmark(Bookmark selected)
         {
@@ -319,7 +327,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             return null;
         }
 
-
         private void NameTextBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter && sender is TextBox textBox && textBox.DataContext is Bookmark bookmark)
@@ -327,7 +334,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 bookmark.IsEditing = false;
             }
         }
-
 
         private void AddFolder_Click(object sender, RoutedEventArgs e)
         {
@@ -387,20 +393,37 @@ namespace Google_Bookmarks_Manager_for_GPOs
             });
         }
 
-        private void AddNestedFolder_Click(object sender, RoutedEventArgs e)
+        private void ExpandAndSelectNewItem(Bookmark newItem)
         {
-            var newFolder = new Bookmark { Name = "New Folder", IsFolder = true };
-
-            if (BookmarksTreeView.SelectedItem is Bookmark selectedBookmark && selectedBookmark.IsFolder)
+            Dispatcher.InvokeAsync(() =>
             {
-                selectedBookmark.Children.Add(newFolder);
-            }
-            else
+                if (FindTreeViewItem(BookmarksTreeView, newItem) is TreeViewItem treeViewItem)
+                {
+                    treeViewItem.IsExpanded = true;
+                    treeViewItem.IsSelected = true;
+                    treeViewItem.Focus();
+                }
+            }, System.Windows.Threading.DispatcherPriority.Background);
+        }
+
+        private TreeViewItem FindTreeViewItem(ItemsControl parent, object item)
+        {
+            if (parent == null) return null;
+
+            for (int i = 0; i < parent.Items.Count; i++)
             {
-                Bookmarks.Add(newFolder); // Add to top-level if no folder is selected
+                var child = parent.ItemContainerGenerator.ContainerFromIndex(i) as TreeViewItem;
+                if (child == null) continue;
+
+                if (child.DataContext == item)
+                    return child;
+
+                var result = FindTreeViewItem(child, item);
+                if (result != null)
+                    return result;
             }
 
-            RefreshTreeViewAndSelect(newFolder);
+            return null;
         }
 
         private void AddNestedBookmark_Click(object sender, RoutedEventArgs e)
@@ -432,6 +455,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 });
             }
         }
+
         private TreeViewItem GetTreeViewItemForBookmark(Bookmark bookmark)
         {
             return GetTreeViewItemForObject(BookmarksTreeView, bookmark);
@@ -458,7 +482,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             return null;
         }
 
-
         private void RefreshTreeViewAndSelect(Bookmark bookmark)
         {
             BookmarksTreeView.Items.Refresh();
@@ -480,8 +503,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             return (TreeViewItem)BookmarksTreeView.ItemContainerGenerator.ContainerFromItem(item);
         }
 
-
-
         private void clearFormButton_Click(object sender, RoutedEventArgs e)
         {
             // Clear the TreeView by resetting the Bookmarks collection
@@ -493,10 +514,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             MessageBox.Show("Form cleared successfully!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
         }
-
-
-
-
 
         private bool GetSelectedBookmark(object sender, out Bookmark selectedBookmark)
         {
@@ -528,7 +545,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             _draggedBookmark = null;
         }
 
-
         private bool RemoveBookmark(ObservableCollection<Bookmark> bookmarks, Bookmark bookmark)
         {
             foreach (var item in bookmarks)
@@ -542,6 +558,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
             return false;
         }
+
         private void exportBookmarksButton_Click_1(object sender, RoutedEventArgs e)
         {
             var jsonArray = new JArray(Bookmarks.Select(ConvertBookmarkToOriginalFormat));
@@ -573,6 +590,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return obj;
         }
+
         private void Window_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Z && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
@@ -603,7 +621,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
-
         private JObject ConvertBookmarkToJson(Bookmark bookmark)
         {
             var obj = new JObject
@@ -623,21 +640,64 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return obj;
         }
+
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             var json = JsonConvert.SerializeObject(Bookmarks, Formatting.Indented);
             Clipboard.SetText(json);
             MessageBox.Show("Bookmarks copied to clipboard!", "Confirmation", MessageBoxButton.OK);
         }
+
         private void CheckBox_Checked(object sender, RoutedEventArgs e)
         {
             SwitchTheme(true);
         }
 
+        private void AddNestedFolder_Click(object sender, RoutedEventArgs e)
+        {
+            if (BookmarksTreeView.SelectedItem is Bookmark selectedBookmark)
+            {
+                var newFolder = new Bookmark
+                {
+                    Name = "New Folder",
+                    IsFolder = true
+                };
+
+                selectedBookmark.Children.Add(newFolder);
+
+                // Force the UI to refresh
+                OnPropertyChanged(nameof(Bookmarks));
+
+                // Use the same expand and select logic as nested bookmarks
+                Dispatcher.InvokeAsync(() =>
+                {
+                    if (FindTreeViewItem(BookmarksTreeView, selectedBookmark) is TreeViewItem parentItem)
+                    {
+                        parentItem.IsExpanded = true;
+
+                        Dispatcher.InvokeAsync(() =>
+                        {
+                            if (FindTreeViewItem(BookmarksTreeView, newFolder) is TreeViewItem newItem)
+                            {
+                                newItem.IsSelected = true;
+                                newItem.Focus();
+                            }
+                        }, System.Windows.Threading.DispatcherPriority.Background);
+                    }
+                }, System.Windows.Threading.DispatcherPriority.Background);
+            }
+            else
+            {
+                MessageBox.Show("Please select a folder to add a nested folder.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+
         private void CheckBox_Unchecked(object sender, RoutedEventArgs e)
         {
             SwitchTheme(false);
         }
+
         private void SwitchTheme(bool isDark)
         {
             var themeSource = isDark
@@ -714,21 +774,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
-        private void ExpandAndSelectNewItem(Bookmark newItem)
-        {
-            // Refresh TreeView and expand/select the new item
-            BookmarksTreeView.Items.Refresh();
-            var treeViewItem = (TreeViewItem)BookmarksTreeView.ItemContainerGenerator.ContainerFromItem(newItem);
-            if (treeViewItem != null)
-            {
-                treeViewItem.IsExpanded = true;
-                treeViewItem.IsSelected = true;
-            }
-        }
-
-
-
-
         private Bookmark ParseBookmark(JToken token)
         {
             var bookmark = new Bookmark
@@ -748,11 +793,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return bookmark;
         }
-
-
-
-
-
 
         #endregion Private Methods
 
