@@ -127,7 +127,8 @@
             <Button x:Name="exportToBrowserButton" Content="Export to Browser" Click="ExportToBrowser_Click" Width="150" Margin="5" Style="{DynamicResource MaterialDesignRaisedButton}" />
             <Button x:Name="importBookmarksButton" Content="Import Bookmarks" Click="importBookmarksButton_Click" Width="150" Margin="5" Style="{DynamicResource MaterialDesignRaisedButton}" />
             <Button x:Name="clearFormButton" Content="Clear Form" Click="clearFormButton_Click" Width="100" Margin="5" Style="{DynamicResource MaterialDesignRaisedButton}" />
-            <Button x:Name="exportClipboardButton" Content="Export to Clipboard" Click="exportBookmarksButton_Click_1" Width="150" Margin="5" Style="{DynamicResource MaterialDesignRaisedButton}" />
+            <Button x:Name="exportClipboardButton" Content="Export to Clipboard" Click="exportBookmarksButton_Click_1" Width="155" Margin="5" Style="{DynamicResource MaterialDesignRaisedButton}" />
+            <Button x:Name="exportXMLformatted" Content="Export XML" Click="exportxml_Click" Width="120" Margin="5" Style="{DynamicResource MaterialDesignRaisedButton}" />
             <CheckBox x:Name="darkModeCheckBox" Content="Dark Mode" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" Margin="5" Style="{DynamicResource MaterialDesignAccentCheckBox}" />
         </StackPanel>
         <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10">
@@ -136,7 +137,6 @@
               Style="{DynamicResource MaterialDesignComboBox}">
                 <ComboBoxItem Content="Google Chrome" />
                 <ComboBoxItem Content="Microsoft Edge" />
-                <ComboBoxItem Content="Mozilla Firefox" />
             </ComboBox>
             <Button Content="Import from Browser" Click="ImportFromBrowser_Click" Width="200" Margin="5" Style="{DynamicResource MaterialDesignRaisedButton}" />
         </StackPanel>

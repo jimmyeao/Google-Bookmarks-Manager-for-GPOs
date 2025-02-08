@@ -33,7 +33,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private static int _idCounter = 1;
         private ChromeManager chromeManager = new ChromeManager();
         private EdgeManager edgeManager = new EdgeManager();
-        private FirefoxManager firefoxManager = new FirefoxManager();
+       
         private string _searchQuery;
         private ObservableCollection<Bookmark> _originalBookmarks;
         private string GenerateCRC32Checksum(string json)
@@ -624,18 +624,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                         edgeManager.ImportBookmarks(edgePath, Bookmarks);
                         break;
 
-                    case "Mozilla Firefox":
-                        string firefoxProfilePath = GetFirefoxProfilePath();
-                        if (!string.IsNullOrEmpty(firefoxProfilePath))
-                        {
-                            firefoxManager.ImportBookmarks(firefoxProfilePath, Bookmarks);
-                        }
-                        else
-                        {
-                            throw new Exception("Firefox profile not found.");
-                        }
-                        break;
-
+                  
                     default:
                         CustomMessageBox.Show("Please select a valid browser.", "Error", MessageBoxButton.OK);
                         return;
@@ -649,6 +638,41 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 CustomMessageBox.Show($"Error importing {selectedBrowser} bookmarks: {ex.Message}", "Error", MessageBoxButton.OK);
             }
         }
+        private void SetClipboardTextWithRetry(string text)
+        {
+            int retryCount = 5;
+            while (retryCount > 0)
+            {
+                try
+                {
+                    Clipboard.SetText(text);
+                    return;
+                }
+                catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException)
+                {
+                    retryCount--;
+                    System.Threading.Thread.Sleep(100); // Wait 100 ms before retrying
+                }
+            }
+
+            throw new Exception("Failed to set clipboard text after multiple attempts.");
+        }
+        private void ExportBookmarksToMacPlist()
+        {
+            MacExportManager macExportManager = new MacExportManager();
+
+            try
+            {
+                string plistXml = macExportManager.GenerateMacPlistXml(Bookmarks);
+                SetClipboardTextWithRetry(plistXml);
+                CustomMessageBox.Show("Bookmarks successfully exported to macOS plist format and copied to the clipboard!", "Success", MessageBoxButton.OK);
+            }
+            catch (Exception ex)
+            {
+                CustomMessageBox.Show($"An error occurred while exporting to macOS plist format: {ex.Message}", "Error", MessageBoxButton.OK);
+            }
+        }
+
 
 
         private void ExportToBrowser_Click(object sender, RoutedEventArgs e)
@@ -673,9 +697,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                         SaveBookmarksToEdge();
                         break;
 
-                    case "Mozilla Firefox":
-                        SaveBookmarksToFirefox();
-                        break;
+                  
 
                     default:
                         CustomMessageBox.Show("Export to this browser is not yet supported.", "Info", MessageBoxButton.OK);
@@ -777,19 +799,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             edgeManager.ExportBookmarks(edgeFilePath, Bookmarks);
         }
 
-        private void SaveBookmarksToFirefox()
-        {
-            FirefoxManager firefoxManager = new FirefoxManager();
-            try
-            {
-                firefoxManager.ExportBookmarksToFirefox(Bookmarks);
-                CustomMessageBox.Show("Bookmarks successfully exported to Firefox!", "Success", MessageBoxButton.OK);
-            }
-            catch (Exception ex)
-            {
-                CustomMessageBox.Show($"An error occurred while exporting to Firefox: {ex.Message}", "Error", MessageBoxButton.OK);
-            }
-        }
+      
 
 
 
@@ -1395,6 +1405,11 @@ namespace Google_Bookmarks_Manager_for_GPOs
         protected void OnPropertyChanged(string propertyName)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        private void exportxml_Click(object sender, RoutedEventArgs e)
+        {
+            ExportBookmarksToMacPlist();
         }
     }
 }
