@@ -16,105 +16,69 @@
     </Window.Resources>
 
     <Grid>
-        <!-- ✅ Define Columns Properly -->
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="2*"/>
+            <!-- TreeView Panel -->
+            <ColumnDefinition Width="3*"/>
+            <!-- Details Panel -->
         </Grid.ColumnDefinitions>
 
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <!-- Main Content -->
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
+            <!-- Buttons -->
         </Grid.RowDefinitions>
 
-        <!-- ✅ Bookmark URL Input -->
-        <Label Grid.Row="0" Grid.Column="0" Content="Bookmark URL:" Margin="5"
-               Foreground="White"/>
-
-
-        <!-- ✅ TreeView for Nested Bookmarks -->
-        <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4"
-                Background="Black" BorderBrush="White" BorderThickness="1">
-            <TreeView x:Name="BookmarksTreeView" ItemsSource="{Binding Bookmarks}" 
-          AllowDrop="True"
-          Foreground="White"
-          Background="Black"
-          BorderBrush="White"
-          BorderThickness="1">
-
-                <!-- Add ContextMenu to the entire TreeView -->
-                <TreeView.ContextMenu>
-                    <ContextMenu>
-                        <MenuItem Header="Add Top-Level Folder" Click="AddTopLevelFolder_Click"/>
-                    </ContextMenu>
-                </TreeView.ContextMenu>
-
+        <!-- TreeView Panel -->
+        <Border Grid.Row="0" Grid.Column="0" Background="Black" BorderBrush="White" BorderThickness="1" Margin="5">
+            <TreeView x:Name="BookmarksTreeView" 
+          ItemsSource="{Binding Bookmarks}" 
+          SelectedItemChanged="BookmarksTreeView_SelectedItemChanged">
                 <TreeView.ItemTemplate>
                     <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding Name}" Margin="5,0,0,0" Foreground="White"/>
-
-                            <!-- Show URL TextBox only for bookmarks -->
-                            <TextBox Text="{Binding Url, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         Width="300" Margin="10,0,0,0"
-                         Background="White" Foreground="Black"
-                         Visibility="{Binding IsFolder, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=True}"/>
-                        </StackPanel>
+                        <TextBlock Text="{Binding Name}" />
                     </HierarchicalDataTemplate>
                 </TreeView.ItemTemplate>
-
-                <TreeView.Resources>
-                    <ContextMenu x:Key="TreeViewContextMenu">
-                        <MenuItem Header="Add Folder" Click="AddFolder_Click"
-                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                        <MenuItem Header="Add Bookmark" Click="AddBookmark_Click"
-                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                        <Separator/>
-                        <MenuItem Header="Delete" Click="DeleteBookmark_Click"
-                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                    </ContextMenu>
-                </TreeView.Resources>
-
-                <TreeView.ItemContainerStyle>
-                    <Style TargetType="TreeViewItem">
-                        <Setter Property="ContextMenu" Value="{StaticResource TreeViewContextMenu}"/>
-                    </Style>
-                </TreeView.ItemContainerStyle>
             </TreeView>
+            
 
         </Border>
 
-        <!-- ✅ Bookmark Folder Name Input -->
-        <Label Grid.Row="2" Grid.Column="0" Content="Bookmark Folder Name:" Margin="5"
-               Foreground="White"/>
-        <TextBox Grid.Row="2" Grid.Column="1" x:Name="bookmarkFolderNameTextBox" Margin="5"
-                 Grid.ColumnSpan="3" Background="Black" Foreground="White"/>
+        <!-- Details Panel -->
+        <StackPanel Grid.Row="0" Grid.Column="1" Margin="10">
+            <Label Content="Bookmark Details" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
 
-        <!-- ✅ Buttons -->
-        <Button Grid.Row="3" Grid.Column="0" x:Name="exportBookmarksButton" Content="Export Bookmarks"
-                Margin="5" Click="exportBookmarksButton_Click_1"
-                Background="Purple" Foreground="White" BorderBrush="White"/>
+            <!-- Name Field -->
+            <Grid Margin="0,5">
+                <TextBox x:Name="bookmarkNameTextBox"
+         Text="{Binding SelectedBookmark.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+         materialDesign:HintAssist.Hint="Enter Bookmark Name"
+         Margin="0,5,0,5" />
+            </Grid>
 
-        <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left">
-            <Button x:Name="importBookmarksButton" Content="Import Bookmarks" Margin="5"
-                    Click="importBookmarksButton_Click"
-                    Background="Purple" Foreground="White" BorderBrush="White"/>
-            <Button x:Name="clearFormButton" Content="Clear Form" Margin="5"
-                    Click="clearFormButton_Click"
-                    Background="Purple" Foreground="White" BorderBrush="White"/>
+            <!-- URL Field -->
+            <Grid Margin="0,5">
+                <TextBox x:Name="bookmarkUrlTextBox"
+         Text="{Binding SelectedBookmark.Url, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+         materialDesign:HintAssist.Hint="Enter URL"
+         Margin="0,5,0,5" />
+            </Grid>
+
+            <!-- Save Button -->
+            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                <Button Content="Save" Click="SaveBookmark_Click" Width="80" Margin="0,0,10,0"/>
+                <Button Content="Delete" Click="DeleteBookmark_Click" Width="80"/>
+            </StackPanel>
         </StackPanel>
 
-        <Button Grid.Row="3" Grid.Column="2" x:Name="exportClipboardButton" Content="Export Clipboard"
-                Margin="5" Click="Button_Click"
-                Background="Purple" Foreground="White" BorderBrush="White"
-                HorizontalAlignment="Right"/>
-
-        <CheckBox Grid.Row="3" Grid.Column="3" x:Name="darkModeCheckBox" Content="Dark Mode"
-                  Margin="5" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked"
-                  Foreground="White"/>
+        <!-- Action Buttons -->
+        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10">
+            <Button x:Name="exportBookmarksButton" Content="Export Bookmarks" Click="exportBookmarksButton_Click_1" Width="150" Margin="5"/>
+            <Button x:Name="importBookmarksButton" Content="Import Bookmarks" Click="importBookmarksButton_Click" Width="150" Margin="5"/>
+            <Button x:Name="clearFormButton" Content="Clear Form" Click="clearFormButton_Click" Width="100" Margin="5"/>
+            <Button x:Name="exportClipboardButton" Content="Export to Clipboard" Click="Button_Click" Width="150" Margin="5"/>
+            <CheckBox x:Name="darkModeCheckBox" Content="Dark Mode" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" Margin="5"/>
+        </StackPanel>
     </Grid>
 </Window>

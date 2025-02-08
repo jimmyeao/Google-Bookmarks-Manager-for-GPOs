@@ -9,6 +9,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Input;
 
 namespace Google_Bookmarks_Manager_for_GPOs
 {
@@ -17,6 +18,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private string _name;
         private string _url;
         private bool _isFolder;
+        private bool _isEditing;
         private ObservableCollection<Bookmark> _children;
 
         public string Name
@@ -49,6 +51,16 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
+        public bool IsEditing
+        {
+            get => _isEditing;
+            set
+            {
+                _isEditing = value;
+                OnPropertyChanged(nameof(IsEditing));
+            }
+        }
+
         public ObservableCollection<Bookmark> Children
         {
             get => _children;
@@ -70,6 +82,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
+
     public class BooleanToVisibilityConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -93,6 +106,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
         #region Private Fields
 
         private ObservableCollection<Bookmark> _bookmarks;
+        private DateTime _lastClickTime;
         private Bookmark _draggedBookmark;
         public ObservableCollection<Bookmark> Bookmarks
         {
@@ -126,12 +140,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         #region Private Methods
 
-        private void clearFormButton_Click(object sender, RoutedEventArgs e)
-        {
-         
-            bookmarkFolderNameTextBox.Clear();
-            Bookmarks.Clear();
-        }
+
         private void TreeView_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             var treeView = sender as TreeView;
@@ -142,6 +151,19 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 DragDrop.DoDragDrop(treeView, item, DragDropEffects.Move);
             }
         }
+        private void TextBlock_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            var currentTime = DateTime.Now;
+            if ((currentTime - _lastClickTime).TotalMilliseconds < 400)  // Detect double-click
+            {
+                if (sender is TextBlock textBlock && textBlock.DataContext is Bookmark bookmark)
+                {
+                    bookmark.IsEditing = true;
+                }
+            }
+            _lastClickTime = currentTime;
+        }
+
         private void AddFolder_Click(object sender, RoutedEventArgs e)
         {
             if (sender is MenuItem menuItem && menuItem.CommandParameter is Bookmark parent)
@@ -154,6 +176,69 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 }
 
                 parent.Children.Add(new Bookmark { Name = "New Folder", IsFolder = true });
+            }
+        }
+        private void TextBlock_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is TextBlock textBlock && textBlock.DataContext is Bookmark bookmark)
+            {
+                bookmark.IsEditing = true;
+            }
+        }
+        private void TextBlock_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2 && sender is TextBlock textBlock && textBlock.DataContext is Bookmark bookmark)
+            {
+                bookmark.IsEditing = true;
+            }
+        }
+
+        private void NameTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is TextBox textBox && textBox.DataContext is Bookmark bookmark)
+            {
+                bookmark.IsEditing = false;
+            }
+        }
+        private void BookmarksTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+        {
+            if (e.NewValue is Bookmark selectedBookmark)
+            {
+                // Populate the text boxes with the selected bookmark's details
+                bookmarkNameTextBox.Text = selectedBookmark.Name;
+                bookmarkUrlTextBox.Text = selectedBookmark.Url;
+            }
+            else
+            {
+                // Clear the text boxes if no valid bookmark is selected
+                bookmarkNameTextBox.Text = string.Empty;
+                bookmarkUrlTextBox.Text = string.Empty;
+            }
+        }
+
+        private void SaveBookmark_Click(object sender, RoutedEventArgs e)
+        {
+            if (BookmarksTreeView.SelectedItem is Bookmark selectedBookmark)
+            {
+                selectedBookmark.Name = bookmarkNameTextBox.Text;
+                selectedBookmark.Url = bookmarkUrlTextBox.Text;
+                MessageBox.Show("Bookmark updated!");
+            }
+        }
+        private void DeleteBookmark_Click(object sender, RoutedEventArgs e)
+        {
+            if (BookmarksTreeView.SelectedItem is Bookmark selectedBookmark)
+            {
+                // Remove logic here – traverse the tree to find and remove
+                RemoveBookmark(Bookmarks, selectedBookmark);
+            }
+        }
+
+        private void NameTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter && sender is TextBox textBox && textBox.DataContext is Bookmark bookmark)
+            {
+                bookmark.IsEditing = false;
             }
         }
 
@@ -169,14 +254,19 @@ namespace Google_Bookmarks_Manager_for_GPOs
         {
             Bookmarks.Add(new Bookmark { Name = "New Folder", IsFolder = true });
         }
-
-        private void DeleteBookmark_Click(object sender, RoutedEventArgs e)
+        private void clearFormButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is MenuItem menuItem && menuItem.CommandParameter is Bookmark bookmark)
-            {
-                RemoveBookmark(Bookmarks, bookmark);
-            }
+            // Clear the TreeView by resetting the Bookmarks collection
+            Bookmarks.Clear();
+
+            // Clear the text boxes
+            bookmarkNameTextBox.Text = string.Empty;
+            bookmarkUrlTextBox.Text = string.Empty;
+
+            MessageBox.Show("Form cleared successfully!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
         }
+
+
 
 
 
