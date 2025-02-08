@@ -34,6 +34,12 @@ namespace Google_Bookmarks_Manager_for_GPOs
             Result = MessageBoxResult.Cancel;
             Close();
         }
+        public static MessageBoxResult Show(string message, string caption, MessageBoxButton buttons)
+        {
+            var messageBox = new CustomMessageBox(message, caption, buttons);
+            messageBox.ShowDialog(); // Show it modally
+            return messageBox.Result; // Return the result (OK or Cancel)
+        }
 
         private void OKButton_Click(object sender, RoutedEventArgs e)
         {

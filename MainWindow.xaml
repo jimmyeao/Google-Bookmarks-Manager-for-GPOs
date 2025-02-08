@@ -5,6 +5,7 @@
         xmlns:local="clr-namespace:Google_Bookmarks_Manager_for_GPOs"
         Title="Google Bookmarks for GPO" Height="500" Width="850"
         Icon="/book.png"
+        PreviewKeyDown="Window_PreviewKeyDown"
         TextElement.Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
         Background="{DynamicResource MaterialDesign.Brush.Background}"
         TextElement.FontWeight="Regular"
