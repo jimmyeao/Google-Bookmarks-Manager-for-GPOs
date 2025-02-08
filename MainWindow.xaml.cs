@@ -9,6 +9,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Google_Bookmarks_Manager_for_GPOs
 {
@@ -59,29 +60,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             DataContext = this;
         }
 
-        private void TreeView_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
-            var treeView = sender as TreeView;
-            var item = treeView.SelectedItem as Bookmark;
-            if (item != null)
-            {
-                _draggedBookmark = item;
-                DragDrop.DoDragDrop(treeView, item, DragDropEffects.Move);
-            }
-        }
-
-        private void TextBlock_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
-            var currentTime = DateTime.Now;
-            if ((currentTime - _lastClickTime).TotalMilliseconds < 400)  // Detect double-click
-            {
-                if (sender is TextBlock textBlock && textBlock.DataContext is Bookmark bookmark)
-                {
-                    bookmark.IsEditing = true;
-                }
-            }
-            _lastClickTime = currentTime;
-        }
+        
 
         private void TextBlock_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
@@ -129,7 +108,9 @@ namespace Google_Bookmarks_Manager_for_GPOs
             {
                 selectedBookmark.Name = bookmarkNameTextBox.Text;
                 selectedBookmark.Url = bookmarkUrlTextBox.Text;
-                MessageBox.Show("Bookmark updated!");
+             
+                CustomMessageBox.Show("Bookmark updated!", "Confirmation", MessageBoxButton.OK);
+
             }
         }
 
@@ -398,7 +379,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
             bookmarkNameTextBox.Text = string.Empty;
             bookmarkUrlTextBox.Text = string.Empty;
 
-            MessageBox.Show("Form cleared successfully!", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+     
+
         }
 
         private bool GetSelectedBookmark(object sender, out Bookmark selectedBookmark)
@@ -452,7 +434,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
             var json = jsonArray.ToString(Formatting.Indented);
             Clipboard.SetText(json);
 
-            MessageBox.Show("Bookmarks exported to clipboard!", "Confirmation", MessageBoxButton.OK);
+            CustomMessageBox.Show("Bookmarks exported to clipboard!", "Confirmation", MessageBoxButton.OK);
+
         }
 
         private JObject ConvertBookmarkToOriginalFormat(Bookmark bookmark)
@@ -502,11 +485,11 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
                 OnPropertyChanged(nameof(Bookmarks));
 
-                CustomMessageBox.Show($"Undo successful: {bookmark.Name}", "Undo", MessageBoxButton.OK);
+                
             }
             else
             {
-                CustomMessageBox.Show("Nothing to undo!", "Undo", MessageBoxButton.OK);
+                
             }
         }
 
@@ -528,7 +511,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 }
 
                 OnPropertyChanged(nameof(Bookmarks));
-                CustomMessageBox.Show("Bookmark deleted successfully.", "Delete", MessageBoxButton.OK);
+                
             }
         }
 
@@ -556,7 +539,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
         {
             var json = JsonConvert.SerializeObject(Bookmarks, Formatting.Indented);
             Clipboard.SetText(json);
-            MessageBox.Show("Bookmarks copied to clipboard!", "Confirmation", MessageBoxButton.OK);
+            CustomMessageBox.Show("Bookmarks exported to clipboard!", "Confirmation", MessageBoxButton.OK);
+
         }
 
         private void CheckBox_Checked(object sender, RoutedEventArgs e)
@@ -599,7 +583,9 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
             else
             {
-                MessageBox.Show("Please select a folder to add a nested folder.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+                CustomMessageBox.Show("Please select a folder to add a nested folder.", "Confirmation", MessageBoxButton.OK);
+
             }
         }
 
@@ -680,7 +666,9 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error parsing bookmarks: " + ex.Message);
+              
+                CustomMessageBox.Show("Error parsing bookmarks: " + ex.Message, "Confirmation", MessageBoxButton.OK);
+
             }
         }
 
