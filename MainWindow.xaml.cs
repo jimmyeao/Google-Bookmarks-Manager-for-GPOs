@@ -26,7 +26,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private AdornerLayer _adornerLayer;
         private bool _isDragging = false;
 
-
         public string TopLevelBookmarkFolderName
         {
             get => _topLevelBookmarkFolderName;
@@ -61,11 +60,9 @@ namespace Google_Bookmarks_Manager_for_GPOs
             {
                 Bookmarks = new ObservableCollection<Bookmark>();
             }
-            
+
             DataContext = this;
         }
-
-        
 
         private void TextBlock_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
@@ -113,9 +110,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
             {
                 selectedBookmark.Name = bookmarkNameTextBox.Text;
                 selectedBookmark.Url = bookmarkUrlTextBox.Text;
-             
-                CustomMessageBox.Show("Bookmark updated!", "Confirmation", MessageBoxButton.OK);
 
+                CustomMessageBox.Show("Bookmark updated!", "Confirmation", MessageBoxButton.OK);
             }
         }
 
@@ -383,9 +379,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             // Clear the text boxes
             bookmarkNameTextBox.Text = string.Empty;
             bookmarkUrlTextBox.Text = string.Empty;
-
-     
-
         }
 
         private bool GetSelectedBookmark(object sender, out Bookmark selectedBookmark)
@@ -440,7 +433,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             Clipboard.SetText(json);
 
             CustomMessageBox.Show("Bookmarks exported to clipboard!", "Confirmation", MessageBoxButton.OK);
-
         }
 
         private JObject ConvertBookmarkToOriginalFormat(Bookmark bookmark)
@@ -460,7 +452,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return obj;
         }
-
 
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
         {
@@ -486,12 +477,9 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 }
 
                 OnPropertyChanged(nameof(Bookmarks));
-
-                
             }
             else
             {
-                
             }
         }
 
@@ -513,7 +501,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 }
 
                 OnPropertyChanged(nameof(Bookmarks));
-                
             }
         }
 
@@ -542,7 +529,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             var json = JsonConvert.SerializeObject(Bookmarks, Formatting.Indented);
             Clipboard.SetText(json);
             CustomMessageBox.Show("Bookmarks exported to clipboard!", "Confirmation", MessageBoxButton.OK);
-
         }
 
         private void CheckBox_Checked(object sender, RoutedEventArgs e)
@@ -585,9 +571,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
             else
             {
-
                 CustomMessageBox.Show("Please select a folder to add a nested folder.", "Confirmation", MessageBoxButton.OK);
-
             }
         }
 
@@ -668,9 +652,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
             catch (Exception ex)
             {
-              
                 CustomMessageBox.Show("Error parsing bookmarks: " + ex.Message, "Confirmation", MessageBoxButton.OK);
-
             }
         }
 
@@ -728,6 +710,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
             e.Handled = true;
         }
+
         private void BookmarksTreeView_DragEnter(object sender, DragEventArgs e)
         {
             if (_adornerLayer == null)
@@ -788,7 +771,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             _draggedBookmark = null;
             OnPropertyChanged(nameof(Bookmarks));
         }
-
 
         protected void OnPropertyChanged(string propertyName)
         {
