@@ -7,6 +7,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using static System.Runtime.InteropServices.JavaScript.JSType;
@@ -18,9 +19,13 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private ObservableCollection<Bookmark> _bookmarks;
         private DateTime _lastClickTime;
         private Stack<(Bookmark parent, Bookmark bookmark)> _undoStack = new Stack<(Bookmark, Bookmark)>();
-
+        private TreeViewItem _draggedItemContainer;
         private Bookmark _draggedBookmark;
         private string _topLevelBookmarkFolderName;
+        private DragAdorner _dragAdorner;
+        private AdornerLayer _adornerLayer;
+        private bool _isDragging = false;
+
 
         public string TopLevelBookmarkFolderName
         {
@@ -56,7 +61,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             {
                 Bookmarks = new ObservableCollection<Bookmark>();
             }
-            SwitchTheme(true);
+            
             DataContext = this;
         }
 
@@ -440,25 +445,22 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private JObject ConvertBookmarkToOriginalFormat(Bookmark bookmark)
         {
-            var obj = new JObject();
-
-            if (bookmark.IsFolder)
+            var obj = new JObject
             {
-                obj["name"] = bookmark.Name;
+                ["name"] = bookmark.Name,
+                ["url"] = bookmark.Url,
+                ["isFolder"] = bookmark.IsFolder,
+                ["isRootFolder"] = bookmark.IsRootFolder  // Export the new property
+            };
 
-                if (bookmark.Children.Any())
-                {
-                    obj["children"] = new JArray(bookmark.Children.Select(ConvertBookmarkToOriginalFormat));
-                }
-            }
-            else
+            if (bookmark.Children.Any())
             {
-                obj["name"] = bookmark.Name;
-                obj["url"] = bookmark.Url;
+                obj["children"] = new JArray(bookmark.Children.Select(ConvertBookmarkToOriginalFormat));
             }
 
             return obj;
         }
+
 
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
         {
@@ -677,11 +679,12 @@ namespace Google_Bookmarks_Manager_for_GPOs
             var bookmark = new Bookmark
             {
                 Name = token["name"]?.ToString() ?? "Unnamed Bookmark",
-                IsFolder = token["children"] != null,
-                Url = token["url"]?.ToString() ?? ""  // Ensure URL is set even if missing
+                Url = token["url"]?.ToString() ?? "",
+                IsFolder = token["isFolder"]?.ToObject<bool>() ?? false,
+                IsRootFolder = token["isRootFolder"]?.ToObject<bool>() ?? false  // Import the new property
             };
 
-            if (bookmark.IsFolder)
+            if (token["children"] != null)
             {
                 foreach (var child in token["children"])
                 {
@@ -691,6 +694,101 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return bookmark;
         }
+
+        private void BookmarksTreeView_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var item = GetNearestContainer(e.OriginalSource as DependencyObject);
+            if (item != null)
+            {
+                _draggedBookmark = item.DataContext as Bookmark;
+                _isDragging = false;
+            }
+            else
+            {
+                _draggedBookmark = null;
+            }
+        }
+
+        private void BookmarksTreeView_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed && _draggedBookmark != null && !_isDragging)
+            {
+                _isDragging = true;
+                DragDrop.DoDragDrop(BookmarksTreeView, _draggedBookmark, DragDropEffects.Move);
+                _isDragging = false;
+            }
+        }
+
+        private void BookmarksTreeView_DragOver(object sender, DragEventArgs e)
+        {
+            if (_dragAdorner != null)
+            {
+                var position = e.GetPosition(BookmarksTreeView);
+                _dragAdorner.UpdatePosition(position.X, position.Y);
+            }
+            e.Handled = true;
+        }
+        private void BookmarksTreeView_DragEnter(object sender, DragEventArgs e)
+        {
+            if (_adornerLayer == null)
+            {
+                _adornerLayer = AdornerLayer.GetAdornerLayer(BookmarksTreeView);
+                _dragAdorner = new DragAdorner(BookmarksTreeView, _draggedBookmark.Name);
+                _adornerLayer.Add(_dragAdorner);
+            }
+        }
+
+        private void BookmarksTreeView_Drop(object sender, DragEventArgs e)
+        {
+            if (_draggedBookmark == null) return;
+
+            var targetBookmark = (e.OriginalSource as FrameworkElement)?.DataContext as Bookmark;
+            if (targetBookmark == null || targetBookmark == _draggedBookmark) return;
+
+            // Prevent moving root folders
+            if (_draggedBookmark.IsRootFolder)
+            {
+                CustomMessageBox.Show("Root folders cannot be moved.", "Operation Not Allowed", MessageBoxButton.OK);
+                _draggedBookmark = null;
+                return;
+            }
+
+            var sourceParent = FindParentBookmark(Bookmarks, _draggedBookmark);
+
+            // Remove from old location
+            if (sourceParent != null)
+            {
+                sourceParent.Children.Remove(_draggedBookmark);
+            }
+            else
+            {
+                Bookmarks.Remove(_draggedBookmark);
+            }
+
+            // Handle dropping into a folder or reordering at the same level
+            if (targetBookmark.IsFolder)
+            {
+                targetBookmark.Children.Add(_draggedBookmark);
+            }
+            else
+            {
+                var targetParent = FindParentBookmark(Bookmarks, targetBookmark);
+                if (targetParent != null)
+                {
+                    int targetIndex = targetParent.Children.IndexOf(targetBookmark);
+                    targetParent.Children.Insert(targetIndex, _draggedBookmark);
+                }
+                else
+                {
+                    int targetIndex = Bookmarks.IndexOf(targetBookmark);
+                    Bookmarks.Insert(targetIndex, _draggedBookmark);
+                }
+            }
+
+            _draggedBookmark = null;
+            OnPropertyChanged(nameof(Bookmarks));
+        }
+
 
         protected void OnPropertyChanged(string propertyName)
         {

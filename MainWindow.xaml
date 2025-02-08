@@ -40,9 +40,14 @@
             <TreeView x:Name="BookmarksTreeView" ItemsSource="{Binding Bookmarks}"
           Style="{DynamicResource MaterialDesignTreeView}"
           SelectedItemChanged="BookmarksTreeView_SelectedItemChanged"
+          AllowDrop="True"
+          DragOver="BookmarksTreeView_DragOver"
+          Drop="BookmarksTreeView_Drop"
           PreviewMouseRightButtonDown="BookmarksTreeView_PreviewMouseRightButtonDown"
+                      PreviewMouseLeftButtonDown="BookmarksTreeView_PreviewMouseLeftButtonDown"
+                      PreviewMouseMove="BookmarksTreeView_PreviewMouseMove"
           KeyDown="TreeView_KeyDown"
-          AllowDrop="True">
+          >
 
                 <TreeView.ItemTemplate>
                     <HierarchicalDataTemplate ItemsSource="{Binding Children}">

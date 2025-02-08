@@ -13,6 +13,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private string _name;
         private string _url;
         private bool _isFolder;
+        private bool _isRootFolder;  // New Property
         private bool _isEditing;
         private ObservableCollection<Bookmark> _children;
 
@@ -43,6 +44,16 @@ namespace Google_Bookmarks_Manager_for_GPOs
             {
                 _isFolder = value;
                 OnPropertyChanged(nameof(IsFolder));
+            }
+        }
+
+        public bool IsRootFolder  // New property to track root folders
+        {
+            get => _isRootFolder;
+            set
+            {
+                _isRootFolder = value;
+                OnPropertyChanged(nameof(IsRootFolder));
             }
         }
 
@@ -78,4 +89,5 @@ namespace Google_Bookmarks_Manager_for_GPOs
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
+
 }
