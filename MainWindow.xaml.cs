@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -25,7 +26,36 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private DragAdorner _dragAdorner;
         private AdornerLayer _adornerLayer;
         private bool _isDragging = false;
+        private string _searchQuery;
+        private ObservableCollection<Bookmark> _originalBookmarks;
+        private ObservableCollection<Bookmark> DeepCopyBookmarks(ObservableCollection<Bookmark> source)
+        {
+            var copy = new ObservableCollection<Bookmark>();
+            foreach (var bookmark in source)
+            {
+                var bookmarkCopy = new Bookmark
+                {
+                    Name = bookmark.Name,
+                    Url = bookmark.Url,
+                    IsFolder = bookmark.IsFolder,
+                    IsRootFolder = bookmark.IsRootFolder,
+                    Children = DeepCopyBookmarks(bookmark.Children) // Recursively copy children
+                };
+                copy.Add(bookmarkCopy);
+            }
+            return copy;
+        }
 
+        public string SearchQuery
+        {
+            get => _searchQuery;
+            set
+            {
+                _searchQuery = value;
+                OnPropertyChanged(nameof(SearchQuery));
+                FilterBookmarks();
+            }
+        }
         public string TopLevelBookmarkFolderName
         {
             get => _topLevelBookmarkFolderName;
@@ -60,6 +90,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             {
                 Bookmarks = new ObservableCollection<Bookmark>();
             }
+            _originalBookmarks = new ObservableCollection<Bookmark>(Bookmarks);  // Backup the original list
 
             DataContext = this;
         }
@@ -71,6 +102,65 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 bookmark.IsEditing = true;
             }
         }
+        private void UpdateOriginalBookmarks()
+        {
+            _originalBookmarks = DeepCopyBookmarks(Bookmarks);
+        }
+
+        private void FilterBookmarks()
+        {
+            if (string.IsNullOrWhiteSpace(SearchQuery))
+            {
+                Bookmarks = new ObservableCollection<Bookmark>(_originalBookmarks);  // Restore original bookmarks
+            }
+            else
+            {
+                var filteredBookmarks = new ObservableCollection<Bookmark>();
+
+                foreach (var bookmark in _originalBookmarks)
+                {
+                    var matchedBookmark = FindMatchingBookmarks(bookmark, SearchQuery);
+                    if (matchedBookmark != null)
+                    {
+                        filteredBookmarks.Add(matchedBookmark);
+                    }
+                }
+
+                Bookmarks = filteredBookmarks;
+            }
+
+            OnPropertyChanged(nameof(Bookmarks));
+        }
+
+        private Bookmark FindMatchingBookmarks(Bookmark bookmark, string query)
+        {
+            bool isMatch = (bookmark.Name?.Contains(query, StringComparison.OrdinalIgnoreCase) == true) ||
+                           (bookmark.Url?.Contains(query, StringComparison.OrdinalIgnoreCase) == true);
+
+            var matchedBookmark = new Bookmark
+            {
+                Name = bookmark.Name,
+                Url = bookmark.Url,
+                IsFolder = bookmark.IsFolder,
+                IsRootFolder = bookmark.IsRootFolder,
+                Children = new ObservableCollection<Bookmark>()
+            };
+
+            foreach (var child in bookmark.Children)
+            {
+                var matchedChild = FindMatchingBookmarks(child, query);
+                if (matchedChild != null)
+                {
+                    matchedBookmark.Children.Add(matchedChild);
+                }
+            }
+
+            // Return the bookmark if it matches the search or has matching children
+            return (isMatch || matchedBookmark.Children.Any()) ? matchedBookmark : null;
+        }
+
+
+
 
         private void TextBlock_MouseDown(object sender, MouseButtonEventArgs e)
         {
@@ -222,7 +312,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 // Add at top-level if no valid parent is selected
                 Bookmarks.Add(newFolder);
             }
-
+            UpdateOriginalBookmarks();
             OnPropertyChanged(nameof(Bookmarks));
             ExpandAndSelectNewItem(newFolder);
         }
@@ -247,7 +337,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 // Add at top-level if no valid parent is selected
                 Bookmarks.Add(newBookmark);
             }
-
+            UpdateOriginalBookmarks();
             OnPropertyChanged(nameof(Bookmarks));
             ExpandAndSelectNewItem(newBookmark);
         }
@@ -391,6 +481,56 @@ namespace Google_Bookmarks_Manager_for_GPOs
             selectedBookmark = null;
             return false;
         }
+        private void ImportFromChromeOrEdge(string filePath)
+        {
+            try
+            {
+                if (!File.Exists(filePath))
+                {
+                    CustomMessageBox.Show("Bookmarks file not found.", "Error", MessageBoxButton.OK);
+                    return;
+                }
+
+                var json = File.ReadAllText(filePath);
+                var parsedJson = JObject.Parse(json);
+                var bookmarks = ParseChromeOrEdgeBookmarks(parsedJson["roots"]["bookmark_bar"]["children"]);
+
+                foreach (var bookmark in bookmarks)
+                {
+                    Bookmarks.Add(bookmark);
+                }
+
+                CustomMessageBox.Show("Bookmarks imported successfully!", "Confirmation", MessageBoxButton.OK);
+            }
+            catch (Exception ex)
+            {
+                CustomMessageBox.Show($"Error importing bookmarks: {ex.Message}", "Error", MessageBoxButton.OK);
+            }
+        }
+
+        private List<Bookmark> ParseChromeOrEdgeBookmarks(JToken token)
+        {
+            var result = new List<Bookmark>();
+
+            foreach (var child in token)
+            {
+                var bookmark = new Bookmark
+                {
+                    Name = child["name"]?.ToString(),
+                    Url = child["url"]?.ToString(),
+                    IsFolder = child["type"]?.ToString() == "folder"
+                };
+
+                if (bookmark.IsFolder && child["children"] != null)
+                {
+                    bookmark.Children = new ObservableCollection<Bookmark>(ParseChromeOrEdgeBookmarks(child["children"]));
+                }
+
+                result.Add(bookmark);
+            }
+
+            return result;
+        }
 
         private void TreeView_Drop(object sender, DragEventArgs e)
         {
@@ -427,13 +567,16 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private void exportBookmarksButton_Click_1(object sender, RoutedEventArgs e)
         {
-            var jsonArray = new JArray(Bookmarks.Select(ConvertBookmarkToOriginalFormat));
+            var exportList = _originalBookmarks ?? Bookmarks; // Ensure we always export the full set of bookmarks
+
+            var jsonArray = new JArray(exportList.Select(ConvertBookmarkToOriginalFormat));
 
             var json = jsonArray.ToString(Formatting.Indented);
             Clipboard.SetText(json);
 
-            CustomMessageBox.Show("Bookmarks exported to clipboard!", "Confirmation", MessageBoxButton.OK);
+            CustomMessageBox.Show("All bookmarks exported to clipboard!", "Confirmation", MessageBoxButton.OK);
         }
+
 
         private JObject ConvertBookmarkToOriginalFormat(Bookmark bookmark)
         {
@@ -605,6 +748,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             if (importWindow.ShowDialog() == true)
             {
                 ParseBookmarks(importWindow.Json);
+                UpdateOriginalBookmarks();
             }
         }
 

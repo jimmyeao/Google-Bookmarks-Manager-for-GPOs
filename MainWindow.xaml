@@ -111,6 +111,10 @@
                 <Button Content="Save" Click="SaveBookmark_Click" Width="100" Margin="0,0,10,0" Style="{DynamicResource MaterialDesignRaisedButton}" />
                 <Button Content="Delete" Click="DeleteBookmark_Click" Width="100" Style="{DynamicResource MaterialDesignRaisedButton}" />
             </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,20,0,0">
+            <TextBox Width="200" Margin="10" Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" 
+         materialDesign:HintAssist.Hint="Search Bookmarks" Style="{DynamicResource MaterialDesignTextBox}" />
+            </StackPanel>
         </StackPanel>
 
         <!-- Action Buttons -->
