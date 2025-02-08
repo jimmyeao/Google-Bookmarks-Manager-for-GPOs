@@ -45,12 +45,20 @@
           Background="Black"
           BorderBrush="White"
           BorderThickness="1">
+
+                <!-- Add ContextMenu to the entire TreeView -->
+                <TreeView.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Add Top-Level Folder" Click="AddTopLevelFolder_Click"/>
+                    </ContextMenu>
+                </TreeView.ContextMenu>
+
                 <TreeView.ItemTemplate>
                     <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{Binding Name}" Margin="5,0,0,0" Foreground="White"/>
 
-                            <!-- Only show TextBox for items that are NOT folders -->
+                            <!-- Show URL TextBox only for bookmarks -->
                             <TextBox Text="{Binding Url, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          Width="300" Margin="10,0,0,0"
                          Background="White" Foreground="Black"
@@ -58,9 +66,25 @@
                         </StackPanel>
                     </HierarchicalDataTemplate>
                 </TreeView.ItemTemplate>
+
+                <TreeView.Resources>
+                    <ContextMenu x:Key="TreeViewContextMenu">
+                        <MenuItem Header="Add Folder" Click="AddFolder_Click"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <MenuItem Header="Add Bookmark" Click="AddBookmark_Click"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <Separator/>
+                        <MenuItem Header="Delete" Click="DeleteBookmark_Click"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                    </ContextMenu>
+                </TreeView.Resources>
+
+                <TreeView.ItemContainerStyle>
+                    <Style TargetType="TreeViewItem">
+                        <Setter Property="ContextMenu" Value="{StaticResource TreeViewContextMenu}"/>
+                    </Style>
+                </TreeView.ItemContainerStyle>
             </TreeView>
-
-
 
         </Border>
 

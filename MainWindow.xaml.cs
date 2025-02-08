@@ -146,9 +146,17 @@ namespace Google_Bookmarks_Manager_for_GPOs
         {
             if (sender is MenuItem menuItem && menuItem.CommandParameter is Bookmark parent)
             {
+                // Ensure only folders can contain other folders
+                if (!parent.IsFolder)
+                {
+                    MessageBox.Show("Cannot add a folder inside a bookmark.", "Invalid Action", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
                 parent.Children.Add(new Bookmark { Name = "New Folder", IsFolder = true });
             }
         }
+
 
         private void AddBookmark_Click(object sender, RoutedEventArgs e)
         {
@@ -156,6 +164,10 @@ namespace Google_Bookmarks_Manager_for_GPOs
             {
                 parent.Children.Add(new Bookmark { Name = "New Bookmark", Url = "http://", IsFolder = false });
             }
+        }
+        private void AddTopLevelFolder_Click(object sender, RoutedEventArgs e)
+        {
+            Bookmarks.Add(new Bookmark { Name = "New Folder", IsFolder = true });
         }
 
         private void DeleteBookmark_Click(object sender, RoutedEventArgs e)
