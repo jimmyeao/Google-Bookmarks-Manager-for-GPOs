@@ -5,13 +5,16 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Google_Bookmarks_Manager_for_GPOs"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
-        Background="{DynamicResource MaterialDesignPaper}"
-        TextElement.FontWeight="Medium"
-        TextElement.FontSize="14"
-        FontFamily="{materialDesign:MaterialDesignFont}"
-        mc:Ignorable="d"
-        Title="Import Bookmarks" Height="300" Width="500">
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        TextElement.Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
+        Background="{DynamicResource MaterialDesign.Brush.Background}"
+        TextElement.FontWeight="Regular"
+        TextElement.FontSize="12"
+        FontFamily="{materialDesign:MaterialDesignFont}"    
+        Title="Import Bookmarks" Height="300" Width="500"
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="Auto">
+        
 
     <Grid>
         <Grid.RowDefinitions>
@@ -20,8 +23,8 @@
         </Grid.RowDefinitions>
         <TextBox Grid.Row="0" Margin="10" x:Name="jsonTextBox" TextWrapping="Wrap" AcceptsReturn="True" />
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="10">
-            <Button x:Name="importButton" Content="Import" Width="100" Margin="5" Click="importButton_Click" />
-            <Button x:Name="cancelButton" Content="Cancel" Width="100" Margin="5" Click="cancelButton_Click" />
+            <Button x:Name="importButton" Content="Import" Width="100" Margin="5" Click="importButton_Click" Style="{DynamicResource MaterialDesignRaisedButton}"/>
+            <Button x:Name="cancelButton" Content="Cancel" Width="100" Margin="5" Click="cancelButton_Click" Style="{DynamicResource MaterialDesignRaisedButton}"/>
         </StackPanel>
     </Grid>
 </Window>

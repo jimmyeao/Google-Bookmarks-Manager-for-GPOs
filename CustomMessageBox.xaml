@@ -5,13 +5,17 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Google_Bookmarks_Manager_for_GPOs"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
-        Background="{DynamicResource MaterialDesignPaper}"
-        TextElement.FontWeight="Medium"
-        TextElement.FontSize="14"
-        FontFamily="{materialDesign:MaterialDesignFont}"
-        mc:Ignorable="d"
-        Title="CustomMessageBox" Height="200" Width="400">
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+ 
+        TextElement.Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
+        Background="{DynamicResource MaterialDesign.Brush.Background}"
+        TextElement.FontWeight="Regular"
+        TextElement.FontSize="12"
+        FontFamily="{materialDesign:MaterialDesignFont}"    
+    
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="Auto">  
+
 
     <Grid>
         <Grid.RowDefinitions>
@@ -20,8 +24,8 @@
         </Grid.RowDefinitions>
         <TextBlock Name="MessageTextBlock" Text="Message" Margin="20" TextWrapping="Wrap" />
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20">
-            <Button Name="OKButton" Content="OK" Width="100" Height="30" Margin="10" Click="OKButton_Click" />
-            <Button Name="CancelButton" Content="Cancel" Width="100" Height="30" Margin="10" Click="CancelButton_Click" />
+            <Button Name="OKButton" Content="OK" Width="100" Height="30" Margin="10" Click="OKButton_Click" Style="{DynamicResource MaterialDesignRaisedButton}" />
+            <Button Name="CancelButton" Content="Cancel" Width="100" Height="30" Margin="10" Click="CancelButton_Click" Style="{DynamicResource MaterialDesignRaisedButton}" />
         </StackPanel>
     </Grid>
 </Window>

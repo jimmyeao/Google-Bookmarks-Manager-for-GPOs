@@ -11,6 +11,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace Google_Bookmarks_Manager_for_GPOs
 {
@@ -240,6 +241,52 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 DeleteBookmark(selected);
             }
         }
+        private void BookmarksTreeView_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            TreeViewItem item = GetNearestContainer(e.OriginalSource as DependencyObject);
+
+            if (item != null)
+            {
+                item.IsSelected = true;  // Select the item under right-click
+            }
+            else
+            {
+                // Handle right-click on empty space
+                ShowEmptySpaceContextMenu();
+                e.Handled = true;
+            }
+        }
+
+        private TreeViewItem GetNearestContainer(DependencyObject source)
+        {
+            while (source != null && !(source is TreeViewItem))
+            {
+                source = VisualTreeHelper.GetParent(source);
+            }
+            return source as TreeViewItem;
+        }
+
+        private void ShowEmptySpaceContextMenu()
+        {
+            ContextMenu contextMenu = new ContextMenu();
+            contextMenu.Items.Add(new MenuItem
+            {
+                Header = "Add Top-Level Folder",
+                Command = new RelayCommand(() => AddTopLevelFolder_Click(null, null))
+            });
+
+            contextMenu.IsOpen = true;
+        }
+        public class RelayCommand : ICommand
+        {
+            private readonly Action _execute;
+            public RelayCommand(Action execute) => _execute = execute;
+
+            public event EventHandler CanExecuteChanged;
+            public bool CanExecute(object parameter) => true;
+            public void Execute(object parameter) => _execute();
+        }
+
 
 
         private void DeleteBookmark(Bookmark selected)
@@ -358,19 +405,59 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private void AddNestedBookmark_Click(object sender, RoutedEventArgs e)
         {
-            var newBookmark = new Bookmark { Name = "New Bookmark", Url = "http://example.com" };
-
-            if (BookmarksTreeView.SelectedItem is Bookmark selectedBookmark && selectedBookmark.IsFolder)
+            if (sender is MenuItem menuItem && menuItem.CommandParameter is Bookmark parentFolder && parentFolder.IsFolder)
             {
-                selectedBookmark.Children.Add(newBookmark);
-            }
-            else
-            {
-                Bookmarks.Add(newBookmark); // Add to top-level if no folder is selected
-            }
+                var newBookmark = new Bookmark { Name = "New Bookmark", Url = "http://", IsFolder = false };
 
-            RefreshTreeViewAndSelect(newBookmark);
+                // Add the new bookmark to the folder
+                parentFolder.Children.Add(newBookmark);
+
+                // Force the TreeView to refresh and expand the folder
+                Dispatcher.Invoke(() =>
+                {
+                    var treeViewItem = GetTreeViewItemForBookmark(parentFolder);
+                    if (treeViewItem != null)
+                    {
+                        treeViewItem.IsExpanded = true;  // Keep the folder expanded
+                        treeViewItem.UpdateLayout();     // Ensure it updates before selection
+                    }
+
+                    // Scroll to and select the new bookmark
+                    var newBookmarkItem = GetTreeViewItemForBookmark(newBookmark);
+                    if (newBookmarkItem != null)
+                    {
+                        newBookmarkItem.IsSelected = true;
+                        newBookmarkItem.BringIntoView();
+                    }
+                });
+            }
         }
+        private TreeViewItem GetTreeViewItemForBookmark(Bookmark bookmark)
+        {
+            return GetTreeViewItemForObject(BookmarksTreeView, bookmark);
+        }
+
+        private TreeViewItem GetTreeViewItemForObject(ItemsControl container, object item)
+        {
+            if (container == null) return null;
+
+            foreach (object child in container.Items)
+            {
+                TreeViewItem childItem = (TreeViewItem)container.ItemContainerGenerator.ContainerFromItem(child);
+                if (childItem == null) continue;
+
+                if (child == item)
+                {
+                    return childItem;
+                }
+
+                TreeViewItem descendant = GetTreeViewItemForObject(childItem, item);
+                if (descendant != null) return descendant;
+            }
+
+            return null;
+        }
+
 
         private void RefreshTreeViewAndSelect(Bookmark bookmark)
         {
