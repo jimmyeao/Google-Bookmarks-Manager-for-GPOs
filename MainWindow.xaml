@@ -32,45 +32,63 @@
 
         <!-- TreeView Panel -->
         <Border Grid.Row="0" Grid.Column="0" Background="Black" BorderBrush="White" BorderThickness="1" Margin="5">
-            <TreeView x:Name="BookmarksTreeView" 
-          ItemsSource="{Binding Bookmarks}" 
-          SelectedItemChanged="BookmarksTreeView_SelectedItemChanged">
+            <TreeView x:Name="BookmarksTreeView" ItemsSource="{Binding Bookmarks}" 
+          SelectedItemChanged="BookmarksTreeView_SelectedItemChanged"
+          AllowDrop="True" Background="Black" Foreground="White">
                 <TreeView.ItemTemplate>
                     <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                        <TextBlock Text="{Binding Name}" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Name}" Margin="5,0,0,0" Foreground="White"/>
+                        </StackPanel>
                     </HierarchicalDataTemplate>
                 </TreeView.ItemTemplate>
+
+                <TreeView.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Add Top-Level Folder" Click="AddTopLevelFolder_Click"/>
+                        <MenuItem Header="Add Nested Folder" Click="AddNestedFolder_Click"
+                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <MenuItem Header="Add Nested Bookmark" Click="AddNestedBookmark_Click"
+                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                    </ContextMenu>
+                </TreeView.ContextMenu>
             </TreeView>
-            
+
+
 
         </Border>
 
         <!-- Details Panel -->
         <StackPanel Grid.Row="0" Grid.Column="1" Margin="10">
-            <Label Content="Bookmark Details" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+            <!-- Main Folder Name Field -->
+            <Grid Margin="0,5"/>
+
+            <!-- Section Title -->
+            <Label Content="Bookmark Details" FontWeight="Bold" FontSize="16" Margin="0,20,0,10"/>
 
             <!-- Name Field -->
             <Grid Margin="0,5">
                 <TextBox x:Name="bookmarkNameTextBox"
-         Text="{Binding SelectedBookmark.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-         materialDesign:HintAssist.Hint="Enter Bookmark Name"
-         Margin="0,5,0,5" />
+                 Text="{Binding SelectedBookmark.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 materialDesign:HintAssist.Hint="Enter Bookmark Name"
+                 Margin="0,5,0,5"/>
             </Grid>
 
             <!-- URL Field -->
             <Grid Margin="0,5">
                 <TextBox x:Name="bookmarkUrlTextBox"
-         Text="{Binding SelectedBookmark.Url, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-         materialDesign:HintAssist.Hint="Enter URL"
-         Margin="0,5,0,5" />
+                 Text="{Binding SelectedBookmark.Url, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 materialDesign:HintAssist.Hint="Enter URL"
+                 Margin="0,5,0,5"/>
             </Grid>
 
-            <!-- Save Button -->
-            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                <Button Content="Save" Click="SaveBookmark_Click" Width="80" Margin="0,0,10,0"/>
-                <Button Content="Delete" Click="DeleteBookmark_Click" Width="80"/>
+            <!-- Save and Delete Buttons -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,20,0,0">
+                <Button Content="Save" Click="SaveBookmark_Click" Width="100" Margin="0,0,10,0"/>
+                <Button Content="Delete" Click="DeleteBookmark_Click" Width="100"/>
             </StackPanel>
         </StackPanel>
+
 
         <!-- Action Buttons -->
         <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10">
