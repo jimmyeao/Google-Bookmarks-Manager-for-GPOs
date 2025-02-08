@@ -4,114 +4,19 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 
 namespace Google_Bookmarks_Manager_for_GPOs
 {
-    public class Bookmark : INotifyPropertyChanged
-    {
-        private string _name;
-        private string _url;
-        private bool _isFolder;
-        private bool _isEditing;
-        private ObservableCollection<Bookmark> _children;
-
-        public string Name
-        {
-            get => _name;
-            set
-            {
-                _name = value;
-                OnPropertyChanged(nameof(Name));
-            }
-        }
-
-        public string Url
-        {
-            get => _url;
-            set
-            {
-                _url = value;
-                OnPropertyChanged(nameof(Url));
-            }
-        }
-
-        public bool IsFolder
-        {
-            get => _isFolder;
-            set
-            {
-                _isFolder = value;
-                OnPropertyChanged(nameof(IsFolder));
-            }
-        }
-
-        public bool IsEditing
-        {
-            get => _isEditing;
-            set
-            {
-                _isEditing = value;
-                OnPropertyChanged(nameof(IsEditing));
-            }
-        }
-
-        public ObservableCollection<Bookmark> Children
-        {
-            get => _children;
-            set
-            {
-                _children = value;
-                OnPropertyChanged(nameof(Children));
-            }
-        }
-
-        public Bookmark()
-        {
-            Children = new ObservableCollection<Bookmark>();
-        }
-
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        protected void OnPropertyChanged(string propertyName)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
-    }
-
-    public class BooleanToVisibilityConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (value is bool isFolder)
-            {
-                // If "IsFolder" is TRUE, hide the TextBox
-                return isFolder ? Visibility.Collapsed : Visibility.Visible;
-            }
-            return Visibility.Visible;
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            throw new NotImplementedException();
-        }
-    }
-
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
-        #region Private Fields
-
         private ObservableCollection<Bookmark> _bookmarks;
         private DateTime _lastClickTime;
         private Stack<(Bookmark parent, Bookmark bookmark)> _undoStack = new Stack<(Bookmark, Bookmark)>();
-        
 
         private Bookmark _draggedBookmark;
         private string _topLevelBookmarkFolderName;
@@ -141,8 +46,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        #endregion Private Fields
-
         public MainWindow()
         {
             InitializeComponent();
@@ -155,8 +58,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             SwitchTheme(true);
             DataContext = this;
         }
-
-        #region Private Methods
 
         private void TreeView_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
@@ -298,8 +199,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             public void Execute(object parameter) => _execute();
         }
 
-      
-
         private Bookmark FindParentBookmark(ObservableCollection<Bookmark> bookmarks, Bookmark target)
         {
             foreach (var bookmark in bookmarks)
@@ -421,7 +320,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
                 // Add the new bookmark to the folder
                 parentFolder.Children.Add(newBookmark);
-              
+
                 // Force the TreeView to refresh and expand the folder
                 Dispatcher.Invoke(() =>
                 {
@@ -633,7 +532,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
-
         private JObject ConvertBookmarkToJson(Bookmark bookmark)
         {
             var obj = new JObject
@@ -677,7 +575,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 };
 
                 selectedBookmark.Children.Add(newFolder);
-                
+
                 // Force the UI to refresh
                 OnPropertyChanged(nameof(Bookmarks));
 
@@ -704,7 +602,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 MessageBox.Show("Please select a folder to add a nested folder.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
-
 
         private void CheckBox_Unchecked(object sender, RoutedEventArgs e)
         {
@@ -806,8 +703,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return bookmark;
         }
-
-        #endregion Private Methods
 
         protected void OnPropertyChanged(string propertyName)
         {
