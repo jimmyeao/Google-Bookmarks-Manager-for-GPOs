@@ -6,6 +6,9 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Runtime.Intrinsics.Arm;
+using System.Security.Cryptography;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -26,8 +29,18 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private DragAdorner _dragAdorner;
         private AdornerLayer _adornerLayer;
         private bool _isDragging = false;
+        private static int _idCounter = 1;
         private string _searchQuery;
         private ObservableCollection<Bookmark> _originalBookmarks;
+        private string GenerateCRC32Checksum(string json)
+        {
+            using (var crc32 = new Crc32())
+            {
+                byte[] bytes = Encoding.UTF8.GetBytes(json);
+                byte[] hash = crc32.ComputeHash(bytes);
+                return BitConverter.ToString(hash).Replace("-", "").ToLower();
+            }
+        }
         private ObservableCollection<Bookmark> DeepCopyBookmarks(ObservableCollection<Bookmark> source)
         {
             var copy = new ObservableCollection<Bookmark>();
@@ -56,6 +69,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 FilterBookmarks();
             }
         }
+
         public string TopLevelBookmarkFolderName
         {
             get => _topLevelBookmarkFolderName;
@@ -102,6 +116,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 bookmark.IsEditing = true;
             }
         }
+
         private void UpdateOriginalBookmarks()
         {
             _originalBookmarks = DeepCopyBookmarks(Bookmarks);
@@ -158,9 +173,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             // Return the bookmark if it matches the search or has matching children
             return (isMatch || matchedBookmark.Children.Any()) ? matchedBookmark : null;
         }
-
-
-
 
         private void TextBlock_MouseDown(object sender, MouseButtonEventArgs e)
         {
@@ -481,13 +493,333 @@ namespace Google_Bookmarks_Manager_for_GPOs
             selectedBookmark = null;
             return false;
         }
+
+        private void ImportFromBrowser_Click(object sender, RoutedEventArgs e)
+        {
+            string selectedBrowser = (browserSelectionComboBox.SelectedItem as ComboBoxItem)?.Content.ToString();
+            string filePath = string.Empty;
+
+            if (selectedBrowser == "Google Chrome")
+            {
+                filePath = $@"C:\Users\{Environment.UserName}\AppData\Local\Google\Chrome\User Data\Default\Bookmarks";
+            }
+            else if (selectedBrowser == "Microsoft Edge")
+            {
+                filePath = $@"C:\Users\{Environment.UserName}\AppData\Local\Microsoft\Edge\User Data\Default\Bookmarks";
+            }
+
+            if (!string.IsNullOrEmpty(filePath))
+            {
+                ImportFromChromeOrEdge(filePath);
+                UpdateOriginalBookmarks();
+            }
+            else
+            {
+                CustomMessageBox.Show("Please select a browser to import bookmarks.", "Error", MessageBoxButton.OK);
+            }
+        }
+
+        private void ExportToBrowser_Click(object sender, RoutedEventArgs e)
+        {
+            if (browserSelectionComboBox.SelectedItem == null)
+            {
+                CustomMessageBox.Show("Please select a browser to export to.", "Error", MessageBoxButton.OK);
+                return;
+            }
+
+            string selectedBrowser = ((ComboBoxItem)browserSelectionComboBox.SelectedItem).Content.ToString();
+
+            try
+            {
+                switch (selectedBrowser)
+                {
+                    case "Google Chrome":
+                        SaveBookmarksToChrome();
+                        break;
+
+                    case "Microsoft Edge":
+                        SaveBookmarksToEdge();
+                        break;
+
+                    default:
+                        CustomMessageBox.Show("Export to this browser is not yet supported.", "Info", MessageBoxButton.OK);
+                        break;
+                }
+
+                CustomMessageBox.Show($"Bookmarks successfully exported to {selectedBrowser}.", "Success", MessageBoxButton.OK);
+            }
+            catch (Exception ex)
+            {
+                CustomMessageBox.Show($"An error occurred while exporting: {ex.Message}", "Error", MessageBoxButton.OK);
+            }
+        }
+
+        private void SaveBookmarksToChrome()
+        {
+            string chromeBookmarksPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                @"Google\Chrome\User Data\Default\Bookmarks"
+            );
+
+            if (!File.Exists(chromeBookmarksPath))
+                throw new FileNotFoundException("Google Chrome bookmarks file not found.");
+
+            var rootObject = new JObject
+            {
+                ["roots"] = new JObject
+                {
+                    ["bookmark_bar"] = CreateChromeFolderNode("Bookmarks bar", Bookmarks.ToList()),
+                    ["other"] = CreateChromeFolderNode("Other bookmarks", new List<Bookmark>()),
+                    ["synced"] = CreateChromeFolderNode("Mobile bookmarks", new List<Bookmark>())
+                },
+                ["version"] = 1
+            };
+
+            // Generate the checksum
+            string jsonWithoutChecksum = rootObject.ToString(Formatting.None);
+            string checksum = GenerateChecksum(jsonWithoutChecksum);
+
+            // Add the checksum to the JSON
+            rootObject["checksum"] = checksum;
+
+            File.WriteAllText(chromeBookmarksPath, rootObject.ToString(Formatting.Indented));
+            CustomMessageBox.Show("Bookmarks successfully exported to Chrome!", "Success", MessageBoxButton.OK);
+        }
+        private JObject CreateChromeFolderNode(string name, List<Bookmark> bookmarks)
+        {
+            var folderNode = new JObject
+            {
+                ["children"] = new JArray(bookmarks.Select(ConvertBookmarkToChromeFormat)),
+                ["date_added"] = GetCurrentTimestamp(),
+                ["date_last_used"] = "0",
+                ["date_modified"] = GetCurrentTimestamp(),
+                ["guid"] = GenerateGuid(),
+                ["id"] = GenerateId(),
+                ["name"] = name,
+                ["type"] = "folder"
+            };
+
+            return folderNode;
+        }
+
+        private string GenerateId()
+        {
+            return new Random().Next(1, 1000).ToString(); // Replace with your own ID generation logic if needed
+        }
+
+        private string GenerateGuid()
+        {
+            return Guid.NewGuid().ToString();
+        }
+        private JObject ConvertToChromeFormat(Bookmark bookmark)
+        {
+            var obj = new JObject
+            {
+                ["name"] = bookmark.Name,
+                ["url"] = bookmark.IsFolder ? null : bookmark.Url,
+                ["type"] = bookmark.IsFolder ? "folder" : "url"
+            };
+
+            if (bookmark.Children.Any())
+            {
+                obj["children"] = new JArray(bookmark.Children.Select(ConvertToChromeFormat));
+            }
+
+            return obj;
+        }
+
+        private void SaveBookmarksToEdge()
+        {
+            string edgeBookmarksPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                @"Microsoft\Edge\User Data\Default\Bookmarks"
+            );
+
+            if (!File.Exists(edgeBookmarksPath))
+                throw new FileNotFoundException("Microsoft Edge bookmarks file not found.");
+
+            var rootObject = new JObject
+            {
+                ["roots"] = new JObject
+                {
+                    ["bookmark_bar"] = CreateEdgeFolderNode("Favourites bar", Bookmarks.ToList()),
+                    ["other"] = CreateEdgeFolderNode("Other favourites", new List<Bookmark>()),
+                    ["synced"] = CreateEdgeFolderNode("Mobile favourites", new List<Bookmark>())
+                },
+                ["version"] = 1
+            };
+
+            // Generate the checksum
+            string jsonWithoutChecksum = rootObject.ToString(Formatting.None);
+            string checksum = GenerateChecksum(jsonWithoutChecksum);
+
+            // Add the checksum to the JSON
+            rootObject["checksum"] = checksum;
+
+            File.WriteAllText(edgeBookmarksPath, rootObject.ToString(Formatting.Indented));
+            CustomMessageBox.Show("Bookmarks successfully exported to Edge!", "Success", MessageBoxButton.OK);
+        }
+
+        private JObject CreateEdgeFolderNode(string name, List<Bookmark> bookmarks)
+        {
+            var folderNode = new JObject
+            {
+                ["children"] = new JArray(bookmarks.Select(ConvertBookmarkToEdgeFormat)),
+                ["date_added"] = GetCurrentTimestamp(),
+                ["date_last_used"] = "0",
+                ["date_modified"] = GetCurrentTimestamp(),
+                ["guid"] = Guid.NewGuid().ToString(),
+                ["id"] = Guid.NewGuid().ToString(),
+                ["name"] = name,
+                ["type"] = "folder"
+            };
+
+            return folderNode;
+        }
+
+        private JObject ConvertBookmarkToEdgeFormat(Bookmark bookmark)
+        {
+            var obj = new JObject
+            {
+                ["name"] = bookmark.Name,
+                ["type"] = bookmark.IsFolder ? "folder" : "url",
+                ["date_added"] = GetCurrentTimestamp(),
+                ["guid"] = Guid.NewGuid().ToString()
+            };
+
+            if (!bookmark.IsFolder)
+            {
+                obj["url"] = bookmark.Url;
+            }
+            else
+            {
+                obj["children"] = new JArray(bookmark.Children.Select(ConvertBookmarkToEdgeFormat));
+            }
+
+            return obj;
+        }
+
+        private string GetCurrentTimestamp()
+        {
+            DateTime epochStart = new DateTime(1601, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            long timestamp = (DateTime.UtcNow - epochStart).Ticks / 10; // Convert ticks to microseconds
+            return timestamp.ToString();
+        }
+
+        private string GenerateChecksum(string json)
+        {
+            using (var md5 = System.Security.Cryptography.MD5.Create())
+            {
+                byte[] hash = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes(json));
+                return BitConverter.ToString(hash).Replace("-", "").ToLower();
+            }
+        }
+
+        private string ConvertBookmarksToChromeJson()
+        {
+            var rootObject = new JObject
+            {
+                ["roots"] = new JObject
+                {
+                    ["bookmark_bar"] = new JObject
+                    {
+                        ["children"] = new JArray(Bookmarks.Select(ConvertBookmarkToChromeFormat))
+                    }
+                }
+            };
+
+            return rootObject.ToString(Formatting.Indented);
+        }
+
+        private void SortAlphabetically_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.CommandParameter is Bookmark selectedBookmark)
+            {
+                // Check if it's the root item (i.e., no parent folder)
+                var parent = FindParentBookmark(Bookmarks, selectedBookmark);
+
+                if (parent == null) // Root item selected
+                {
+                    SortBookmarks(Bookmarks);
+                    CustomMessageBox.Show("All bookmarks sorted alphabetically.", "Success", MessageBoxButton.OK);
+                }
+                else if (selectedBookmark.IsFolder)
+                {
+                    SortBookmarks(selectedBookmark.Children);
+                    CustomMessageBox.Show($"Folder '{selectedBookmark.Name}' sorted alphabetically.", "Success", MessageBoxButton.OK);
+                }
+                else
+                {
+                    CustomMessageBox.Show("Sorting is only available for folders.", "Info", MessageBoxButton.OK);
+                }
+
+                RefreshTreeView();
+            }
+        }
+
+        private void SortBookmarks(ObservableCollection<Bookmark> bookmarks, bool recursive = false)
+        {
+            var folders = bookmarks.Where(b => b.IsFolder).OrderBy(b => b.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            var files = bookmarks.Where(b => !b.IsFolder).OrderBy(b => b.Name, StringComparer.OrdinalIgnoreCase).ToList();
+
+            bookmarks.Clear();
+            foreach (var folder in folders)
+            {
+                bookmarks.Add(folder);
+                if (recursive && folder.Children.Any())
+                {
+                    SortBookmarks(folder.Children, true); // Sort children recursively if recursive flag is true
+                }
+            }
+            foreach (var file in files)
+            {
+                bookmarks.Add(file);
+            }
+            UpdateOriginalBookmarks();
+        }
+
+        private void RefreshTreeView()
+        {
+            BookmarksTreeView.Items.Refresh();
+        }
+
+        private JObject ConvertBookmarkToChromeFormat(Bookmark bookmark)
+        {
+            var obj = new JObject
+            {
+                ["name"] = bookmark.Name,
+                ["type"] = bookmark.IsFolder ? "folder" : "url",
+                ["date_added"] = GetCurrentTimestamp(),
+                ["guid"] = GenerateGuid(),
+                ["id"] = GenerateId()
+            };
+
+            if (!bookmark.IsFolder)
+            {
+                obj["url"] = bookmark.Url;
+            }
+            else if (bookmark.Children.Any())
+            {
+                obj["children"] = new JArray(bookmark.Children.Select(ConvertBookmarkToChromeFormat));
+            }
+
+            // Optional: Add meta_info for Chrome-specific metadata
+            obj["meta_info"] = new JObject
+            {
+                ["power_bookmark_meta"] = "" // Leave empty for now
+            };
+
+            return obj;
+        }
+
+
         private void ImportFromChromeOrEdge(string filePath)
         {
             try
             {
                 if (!File.Exists(filePath))
                 {
-                    CustomMessageBox.Show("Bookmarks file not found.", "Error", MessageBoxButton.OK);
+                    CustomMessageBox.Show("Bookmarks file not found for the selected browser.", "Error", MessageBoxButton.OK);
                     return;
                 }
 
@@ -532,6 +864,13 @@ namespace Google_Bookmarks_Manager_for_GPOs
             return result;
         }
 
+        private string GetChromeTimestamp()
+        {
+            DateTime epochStart = new DateTime(1601, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            long timestamp = (DateTime.UtcNow - epochStart).Ticks / 10; // Convert ticks to microseconds
+            return timestamp.ToString();
+        }
+
         private void TreeView_Drop(object sender, DragEventArgs e)
         {
             if (_draggedBookmark == null) return;
@@ -567,28 +906,64 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private void exportBookmarksButton_Click_1(object sender, RoutedEventArgs e)
         {
-            var exportList = _originalBookmarks ?? Bookmarks; // Ensure we always export the full set of bookmarks
-
-            var jsonArray = new JArray(exportList.Select(ConvertBookmarkToOriginalFormat));
-
-            var json = jsonArray.ToString(Formatting.Indented);
-            Clipboard.SetText(json);
-
-            CustomMessageBox.Show("All bookmarks exported to clipboard!", "Confirmation", MessageBoxButton.OK);
+            try
+            {
+                var exportList = new JArray(Bookmarks.Select(ConvertBookmarkToOriginalFormat));
+                var json = exportList.ToString(Formatting.Indented);
+                Clipboard.SetText(json);
+                CustomMessageBox.Show("Bookmarks exported to clipboard in the desired format!", "Confirmation", MessageBoxButton.OK);
+            }
+            catch (Exception ex)
+            {
+                CustomMessageBox.Show($"Error during export: {ex.Message}", "Error", MessageBoxButton.OK);
+            }
         }
 
-
-        private JObject ConvertBookmarkToOriginalFormat(Bookmark bookmark)
+        private JObject ConvertToSimpleJsonObject(Bookmark bookmark)
         {
             var obj = new JObject
             {
-                ["name"] = bookmark.Name,
-                ["url"] = bookmark.Url,
-                ["isFolder"] = bookmark.IsFolder,
-                ["isRootFolder"] = bookmark.IsRootFolder  // Export the new property
+                ["Name"] = bookmark.Name,
+                ["Url"] = bookmark.IsFolder ? null : bookmark.Url
             };
 
             if (bookmark.Children.Any())
+            {
+                obj["Children"] = new JArray(bookmark.Children.Select(ConvertToSimpleJsonObject));
+            }
+
+            return obj;
+        }
+
+        private object CreateExportableObject(Bookmark bookmark)
+        {
+            return new
+            {
+                Name = bookmark.Name,
+                Url = bookmark.Url,
+                Children = bookmark.Children.Select(CreateExportableObject).ToList()
+            };
+        }
+
+        private JObject ConvertBookmarkToOriginalFormat(Bookmark bookmark)
+        {
+            var obj = new JObject();
+
+            if (bookmark.IsRootFolder)  // Root-level folder should use "toplevel_name"
+            {
+                obj["toplevel_name"] = bookmark.Name;
+            }
+            else
+            {
+                obj["name"] = bookmark.Name;
+            }
+
+            if (!bookmark.IsFolder && !string.IsNullOrWhiteSpace(bookmark.Url))
+            {
+                obj["url"] = bookmark.Url;
+            }
+
+            if (bookmark.Children != null && bookmark.Children.Any())
             {
                 obj["children"] = new JArray(bookmark.Children.Select(ConvertBookmarkToOriginalFormat));
             }
@@ -665,13 +1040,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
 
             return obj;
-        }
-
-        private void Button_Click(object sender, RoutedEventArgs e)
-        {
-            var json = JsonConvert.SerializeObject(Bookmarks, Formatting.Indented);
-            Clipboard.SetText(json);
-            CustomMessageBox.Show("Bookmarks exported to clipboard!", "Confirmation", MessageBoxButton.OK);
         }
 
         private void CheckBox_Checked(object sender, RoutedEventArgs e)
