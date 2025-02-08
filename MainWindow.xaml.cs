@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
@@ -107,6 +108,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private ObservableCollection<Bookmark> _bookmarks;
         private DateTime _lastClickTime;
+        private Stack<(Bookmark parent, Bookmark bookmark)> _undoStack = new Stack<(Bookmark, Bookmark)>();
+
         private Bookmark _draggedBookmark;
         private string _topLevelBookmarkFolderName;
         public string TopLevelBookmarkFolderName
@@ -222,14 +225,53 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 MessageBox.Show("Bookmark updated!");
             }
         }
-        private void DeleteBookmark_Click(object sender, RoutedEventArgs e)
+        private void TreeView_KeyDown(object sender, KeyEventArgs e)
         {
-            if (BookmarksTreeView.SelectedItem is Bookmark selectedBookmark)
+            if (e.Key == Key.Delete && BookmarksTreeView.SelectedItem is Bookmark selected)
             {
-                // Remove logic here – traverse the tree to find and remove
-                RemoveBookmark(Bookmarks, selectedBookmark);
+                DeleteBookmark(selected);
             }
         }
+
+        private void DeleteBookmark_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.DataContext is Bookmark selected)
+            {
+                DeleteBookmark(selected);
+            }
+        }
+
+
+        private void DeleteBookmark(Bookmark selected)
+        {
+            var parent = FindParentBookmark(Bookmarks, selected);
+            if (parent != null)
+            {
+                parent.Children.Remove(selected);
+                _undoStack.Push((parent, selected));
+            }
+            else
+            {
+                // If no parent, it’s a top-level folder
+                Bookmarks.Remove(selected);
+                _undoStack.Push((null, selected));
+            }
+        }
+
+        private Bookmark FindParentBookmark(ObservableCollection<Bookmark> bookmarks, Bookmark target)
+        {
+            foreach (var bookmark in bookmarks)
+            {
+                if (bookmark.Children.Contains(target))
+                    return bookmark;
+
+                var result = FindParentBookmark(bookmark.Children, target);
+                if (result != null)
+                    return result;
+            }
+            return null;
+        }
+
 
         private void NameTextBox_KeyDown(object sender, KeyEventArgs e)
         {
@@ -444,6 +486,36 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return obj;
         }
+        private void Window_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Z && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                UndoDelete();
+            }
+        }
+
+        private void UndoDelete()
+        {
+            if (_undoStack.Count > 0)
+            {
+                var (parent, bookmark) = _undoStack.Pop();
+                if (parent != null)
+                {
+                    parent.Children.Add(bookmark);
+                }
+                else
+                {
+                    Bookmarks.Add(bookmark);
+                }
+
+                MessageBox.Show($"Undo successful: {bookmark.Name}", "Undo", MessageBoxButton.OK);
+            }
+            else
+            {
+                MessageBox.Show("Nothing to undo!", "Undo", MessageBoxButton.OK);
+            }
+        }
+
 
         private JObject ConvertBookmarkToJson(Bookmark bookmark)
         {

@@ -32,9 +32,12 @@
 
         <!-- TreeView Panel -->
         <Border Grid.Row="0" Grid.Column="0" Background="Black" BorderBrush="White" BorderThickness="1" Margin="5">
-            <TreeView x:Name="BookmarksTreeView" ItemsSource="{Binding Bookmarks}" 
+            <TreeView x:Name="BookmarksTreeView" ItemsSource="{Binding Bookmarks}"
           SelectedItemChanged="BookmarksTreeView_SelectedItemChanged"
-          AllowDrop="True" Background="Black" Foreground="White">
+          KeyDown="TreeView_KeyDown"
+          AllowDrop="True"
+          Background="Black" Foreground="White">
+
                 <TreeView.ItemTemplate>
                     <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                         <StackPanel Orientation="Horizontal">
@@ -50,9 +53,13 @@
                       CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                         <MenuItem Header="Add Nested Bookmark" Click="AddNestedBookmark_Click"
                       CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <Separator/>
+                        <MenuItem Header="Delete" Click="DeleteBookmark_Click"
+                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                     </ContextMenu>
                 </TreeView.ContextMenu>
             </TreeView>
+
 
 
 
