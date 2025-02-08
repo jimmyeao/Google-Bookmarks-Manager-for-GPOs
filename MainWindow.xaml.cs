@@ -12,6 +12,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using Microsoft.Data.Sqlite;
 using System.Windows.Input;
 using System.Windows.Media;
 using static System.Runtime.InteropServices.JavaScript.JSType;
@@ -30,6 +31,9 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private AdornerLayer _adornerLayer;
         private bool _isDragging = false;
         private static int _idCounter = 1;
+        private ChromeManager chromeManager = new ChromeManager();
+        private EdgeManager edgeManager = new EdgeManager();
+        private FirefoxManager firefoxManager = new FirefoxManager();
         private string _searchQuery;
         private ObservableCollection<Bookmark> _originalBookmarks;
         private string GenerateCRC32Checksum(string json)
@@ -57,6 +61,146 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 copy.Add(bookmarkCopy);
             }
             return copy;
+        }
+        private void ImportFromFirefox_Click(object sender, RoutedEventArgs e)
+        {
+            string profilePath = GetFirefoxProfilePath();
+            if (string.IsNullOrEmpty(profilePath))
+            {
+                CustomMessageBox.Show("Firefox profile not found.", "Error", MessageBoxButton.OK);
+                return;
+            }
+
+            string placesDbPath = Path.Combine(profilePath, "places.sqlite");
+            if (!File.Exists(placesDbPath))
+            {
+                CustomMessageBox.Show("places.sqlite file not found.", "Error", MessageBoxButton.OK);
+                return;
+            }
+
+            try
+            {
+                using (var connection = new SqliteConnection($"Data Source={placesDbPath}"))
+                {
+                    connection.Open();
+                    string query = @"SELECT b.title, p.url 
+                             FROM moz_bookmarks b 
+                             JOIN moz_places p ON b.fk = p.id 
+                             WHERE b.type = 1";  // Type 1 = Bookmark
+
+                    using (var command = new SqliteCommand(query, connection))
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            string title = reader["title"]?.ToString() ?? "Unnamed";
+                            string url = reader["url"]?.ToString();
+
+                            if (!string.IsNullOrEmpty(url))
+                            {
+                                // Add each bookmark to your collection
+                                Bookmarks.Add(new Bookmark
+                                {
+                                    Name = title,
+                                    Url = url,
+                                    IsFolder = false
+                                });
+                            }
+                        }
+                    }
+                }
+
+                CustomMessageBox.Show("Bookmarks imported from Firefox!", "Success", MessageBoxButton.OK);
+            }
+            catch (Exception ex)
+            {
+                CustomMessageBox.Show($"Error importing Firefox bookmarks: {ex.Message}", "Error", MessageBoxButton.OK);
+            }
+        }
+
+        private void ExportToFirefox_Click(object sender, RoutedEventArgs e)
+        {
+            string exportPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "firefox_bookmarks.json");
+
+            var rootObject = new JObject
+            {
+                ["title"] = "bookmarks",
+                ["children"] = new JArray(Bookmarks.Select(ConvertBookmarkToFirefoxFormat))
+            };
+
+            File.WriteAllText(exportPath, rootObject.ToString(Formatting.Indented));
+            CustomMessageBox.Show($"Bookmarks exported as JSON to {exportPath}!", "Success", MessageBoxButton.OK);
+        }
+
+        private JObject ConvertBookmarkToFirefoxFormat(Bookmark bookmark)
+        {
+            var obj = new JObject
+            {
+                ["title"] = bookmark.Name,
+                ["type"] = bookmark.IsFolder ? "text/x-moz-place-container" : "text/x-moz-place",
+                ["uri"] = bookmark.Url
+            };
+
+            if (bookmark.Children.Any())
+            {
+                obj["children"] = new JArray(bookmark.Children.Select(ConvertBookmarkToFirefoxFormat));
+            }
+
+            return obj;
+        }
+        private void ExportToFirefoxHTML_Click(object sender, RoutedEventArgs e)
+        {
+            string exportPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "firefox_bookmarks.html");
+            StringBuilder html = new StringBuilder();
+
+            html.AppendLine("<!DOCTYPE NETSCAPE-Bookmark-file-1>");
+            html.AppendLine("<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">");
+            html.AppendLine("<TITLE>Bookmarks</TITLE>");
+            html.AppendLine("<H1>Bookmarks</H1>");
+            html.AppendLine("<DL><p>");
+
+            foreach (var bookmark in Bookmarks)
+            {
+                AppendBookmarkToHtml(bookmark, html, 1);
+            }
+
+            html.AppendLine("</DL><p>");
+            File.WriteAllText(exportPath, html.ToString());
+
+            CustomMessageBox.Show($"Bookmarks exported as HTML to {exportPath}!", "Success", MessageBoxButton.OK);
+        }
+
+        private void AppendBookmarkToHtml(Bookmark bookmark, StringBuilder html, int indentLevel)
+        {
+            string indent = new string(' ', indentLevel * 4);
+            if (bookmark.IsFolder)
+            {
+                html.AppendLine($"{indent}<DT><H3>{bookmark.Name}</H3>");
+                html.AppendLine($"{indent}<DL><p>");
+                foreach (var child in bookmark.Children)
+                {
+                    AppendBookmarkToHtml(child, html, indentLevel + 1);
+                }
+                html.AppendLine($"{indent}</DL><p>");
+            }
+            else
+            {
+                html.AppendLine($"{indent}<DT><A HREF=\"{bookmark.Url}\">{bookmark.Name}</A>");
+            }
+        }
+
+        private string GetFirefoxProfilePath()
+        {
+            string firefoxProfilesPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mozilla\\Firefox\\Profiles");
+            if (Directory.Exists(firefoxProfilesPath))
+            {
+                var profileDirs = Directory.GetDirectories(firefoxProfilesPath);
+                if (profileDirs.Length > 0)
+                {
+                    return profileDirs[0];  // Return the first profile found
+                }
+            }
+            return string.Empty;
         }
 
         public string SearchQuery
