@@ -136,6 +136,7 @@
               Style="{DynamicResource MaterialDesignComboBox}">
                 <ComboBoxItem Content="Google Chrome" />
                 <ComboBoxItem Content="Microsoft Edge" />
+                <ComboBoxItem Content="Mozilla Firefox" />
             </ComboBox>
             <Button Content="Import from Browser" Click="ImportFromBrowser_Click" Width="200" Margin="5" Style="{DynamicResource MaterialDesignRaisedButton}" />
         </StackPanel>

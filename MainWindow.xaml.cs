@@ -118,19 +118,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
-        private void ExportToFirefox_Click(object sender, RoutedEventArgs e)
-        {
-            string exportPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "firefox_bookmarks.json");
-
-            var rootObject = new JObject
-            {
-                ["title"] = "bookmarks",
-                ["children"] = new JArray(Bookmarks.Select(ConvertBookmarkToFirefoxFormat))
-            };
-
-            File.WriteAllText(exportPath, rootObject.ToString(Formatting.Indented));
-            CustomMessageBox.Show($"Bookmarks exported as JSON to {exportPath}!", "Success", MessageBoxButton.OK);
-        }
+       
 
         private JObject ConvertBookmarkToFirefoxFormat(Bookmark bookmark)
         {
@@ -148,27 +136,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return obj;
         }
-        private void ExportToFirefoxHTML_Click(object sender, RoutedEventArgs e)
-        {
-            string exportPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "firefox_bookmarks.html");
-            StringBuilder html = new StringBuilder();
 
-            html.AppendLine("<!DOCTYPE NETSCAPE-Bookmark-file-1>");
-            html.AppendLine("<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">");
-            html.AppendLine("<TITLE>Bookmarks</TITLE>");
-            html.AppendLine("<H1>Bookmarks</H1>");
-            html.AppendLine("<DL><p>");
-
-            foreach (var bookmark in Bookmarks)
-            {
-                AppendBookmarkToHtml(bookmark, html, 1);
-            }
-
-            html.AppendLine("</DL><p>");
-            File.WriteAllText(exportPath, html.ToString());
-
-            CustomMessageBox.Show($"Bookmarks exported as HTML to {exportPath}!", "Success", MessageBoxButton.OK);
-        }
 
         private void AppendBookmarkToHtml(Bookmark bookmark, StringBuilder html, int indentLevel)
         {
@@ -641,27 +609,47 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private void ImportFromBrowser_Click(object sender, RoutedEventArgs e)
         {
             string selectedBrowser = (browserSelectionComboBox.SelectedItem as ComboBoxItem)?.Content.ToString();
-            string filePath = string.Empty;
 
-            if (selectedBrowser == "Google Chrome")
+            try
             {
-                filePath = $@"C:\Users\{Environment.UserName}\AppData\Local\Google\Chrome\User Data\Default\Bookmarks";
-            }
-            else if (selectedBrowser == "Microsoft Edge")
-            {
-                filePath = $@"C:\Users\{Environment.UserName}\AppData\Local\Microsoft\Edge\User Data\Default\Bookmarks";
-            }
+                switch (selectedBrowser)
+                {
+                    case "Google Chrome":
+                        string chromePath = $@"C:\Users\{Environment.UserName}\AppData\Local\Google\Chrome\User Data\Default\Bookmarks";
+                        chromeManager.ImportBookmarks(chromePath, Bookmarks);
+                        break;
 
-            if (!string.IsNullOrEmpty(filePath))
-            {
-                ImportFromChromeOrEdge(filePath);
+                    case "Microsoft Edge":
+                        string edgePath = $@"C:\Users\{Environment.UserName}\AppData\Local\Microsoft\Edge\User Data\Default\Bookmarks";
+                        edgeManager.ImportBookmarks(edgePath, Bookmarks);
+                        break;
+
+                    case "Mozilla Firefox":
+                        string firefoxProfilePath = GetFirefoxProfilePath();
+                        if (!string.IsNullOrEmpty(firefoxProfilePath))
+                        {
+                            firefoxManager.ImportBookmarks(firefoxProfilePath, Bookmarks);
+                        }
+                        else
+                        {
+                            throw new Exception("Firefox profile not found.");
+                        }
+                        break;
+
+                    default:
+                        CustomMessageBox.Show("Please select a valid browser.", "Error", MessageBoxButton.OK);
+                        return;
+                }
+
                 UpdateOriginalBookmarks();
+                CustomMessageBox.Show($"{selectedBrowser} bookmarks imported successfully!", "Success", MessageBoxButton.OK);
             }
-            else
+            catch (Exception ex)
             {
-                CustomMessageBox.Show("Please select a browser to import bookmarks.", "Error", MessageBoxButton.OK);
+                CustomMessageBox.Show($"Error importing {selectedBrowser} bookmarks: {ex.Message}", "Error", MessageBoxButton.OK);
             }
         }
+
 
         private void ExportToBrowser_Click(object sender, RoutedEventArgs e)
         {
@@ -683,6 +671,10 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
                     case "Microsoft Edge":
                         SaveBookmarksToEdge();
+                        break;
+
+                    case "Mozilla Firefox":
+                        SaveBookmarksToFirefox();
                         break;
 
                     default:
@@ -774,35 +766,32 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private void SaveBookmarksToEdge()
         {
-            string edgeBookmarksPath = Path.Combine(
+            string edgeFilePath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 @"Microsoft\Edge\User Data\Default\Bookmarks"
             );
 
-            if (!File.Exists(edgeBookmarksPath))
+            if (!File.Exists(edgeFilePath))
                 throw new FileNotFoundException("Microsoft Edge bookmarks file not found.");
 
-            var rootObject = new JObject
-            {
-                ["roots"] = new JObject
-                {
-                    ["bookmark_bar"] = CreateEdgeFolderNode("Favourites bar", Bookmarks.ToList()),
-                    ["other"] = CreateEdgeFolderNode("Other favourites", new List<Bookmark>()),
-                    ["synced"] = CreateEdgeFolderNode("Mobile favourites", new List<Bookmark>())
-                },
-                ["version"] = 1
-            };
-
-            // Generate the checksum
-            string jsonWithoutChecksum = rootObject.ToString(Formatting.None);
-            string checksum = GenerateChecksum(jsonWithoutChecksum);
-
-            // Add the checksum to the JSON
-            rootObject["checksum"] = checksum;
-
-            File.WriteAllText(edgeBookmarksPath, rootObject.ToString(Formatting.Indented));
-            CustomMessageBox.Show("Bookmarks successfully exported to Edge!", "Success", MessageBoxButton.OK);
+            edgeManager.ExportBookmarks(edgeFilePath, Bookmarks);
         }
+
+        private void SaveBookmarksToFirefox()
+        {
+            FirefoxManager firefoxManager = new FirefoxManager();
+            try
+            {
+                firefoxManager.ExportBookmarksToFirefox(Bookmarks);
+                CustomMessageBox.Show("Bookmarks successfully exported to Firefox!", "Success", MessageBoxButton.OK);
+            }
+            catch (Exception ex)
+            {
+                CustomMessageBox.Show($"An error occurred while exporting to Firefox: {ex.Message}", "Error", MessageBoxButton.OK);
+            }
+        }
+
+
 
         private JObject CreateEdgeFolderNode(string name, List<Bookmark> bookmarks)
         {
@@ -957,32 +946,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
         }
 
 
-        private void ImportFromChromeOrEdge(string filePath)
-        {
-            try
-            {
-                if (!File.Exists(filePath))
-                {
-                    CustomMessageBox.Show("Bookmarks file not found for the selected browser.", "Error", MessageBoxButton.OK);
-                    return;
-                }
-
-                var json = File.ReadAllText(filePath);
-                var parsedJson = JObject.Parse(json);
-                var bookmarks = ParseChromeOrEdgeBookmarks(parsedJson["roots"]["bookmark_bar"]["children"]);
-
-                foreach (var bookmark in bookmarks)
-                {
-                    Bookmarks.Add(bookmark);
-                }
-
-                CustomMessageBox.Show("Bookmarks imported successfully!", "Confirmation", MessageBoxButton.OK);
-            }
-            catch (Exception ex)
-            {
-                CustomMessageBox.Show($"Error importing bookmarks: {ex.Message}", "Error", MessageBoxButton.OK);
-            }
-        }
+        
 
         private List<Bookmark> ParseChromeOrEdgeBookmarks(JToken token)
         {
