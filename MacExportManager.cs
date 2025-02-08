@@ -15,7 +15,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
         public string GenerateMacPlistXml(ObservableCollection<Bookmark> bookmarks)
         {
             var plist = new XDocument(
-                new XDeclaration("1.0", "UTF-8", "yes"),
+                new XDeclaration("1.0", "UTF-8", null),
                 new XElement("plist",
                     new XAttribute("version", "1.0"),
                     new XElement("dict",
@@ -27,14 +27,20 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 )
             );
 
-            return plist.ToString(SaveOptions.DisableFormatting);
+            using (var writer = new StringWriter())
+            {
+                writer.WriteLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+                writer.WriteLine("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
+                plist.Save(writer, SaveOptions.None);  // Save without additional indentation for plist compatibility
+                return writer.ToString();
+            }
         }
 
         private XElement ConvertBookmarkToPlistDict(Bookmark bookmark, bool isTopLevel = false)
         {
             var dictElement = new XElement("dict");
 
-            if (isTopLevel)  // Handle top-level bookmarks
+            if (isTopLevel)
             {
                 dictElement.Add(
                     new XElement("key", "toplevel_name"),
@@ -51,15 +57,13 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             if (!string.IsNullOrEmpty(bookmark.Url))
             {
-                // Regular bookmark with a URL
                 dictElement.Add(
                     new XElement("key", "url"),
-                    new XElement("string", bookmark.Url)
+                    new XElement("string", WrapInCDataIfNeeded(bookmark.Url))
                 );
             }
             else if (bookmark.Children.Any())
             {
-                // Folder with children
                 dictElement.Add(
                     new XElement("key", "children"),
                     new XElement("array", bookmark.Children.Select(b => ConvertBookmarkToPlistDict(b)).Where(x => x != null))
@@ -68,6 +72,16 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return dictElement;
         }
+
+        private string WrapInCDataIfNeeded(string input)
+        {
+            if (input.Contains("&") || input.Contains("<") || input.Contains(">"))
+            {
+                return $"<![CDATA[{input}]]>";
+            }
+            return input;
+        }
+
 
 
 
