@@ -1,4 +1,4 @@
-﻿sort alphabetically
-export to browser
-
-export to xml borken, duplicates line 1 on line 3
+﻿Known Issues
+fix UI sorting
+fix UI jumping when using del key
+fix darkmode chcekbox to change color with themes
