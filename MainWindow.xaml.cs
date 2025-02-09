@@ -16,6 +16,7 @@ using Microsoft.Data.Sqlite;
 using System.Windows.Input;
 using System.Windows.Media;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+using System.Xml.Linq;
 
 namespace Google_Bookmarks_Manager_for_GPOs
 {
@@ -1237,44 +1238,68 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 UpdateOriginalBookmarks();
             }
         }
+        private bool IsPlistXml(string content)
+        {
+            return content.StartsWith("<?xml") || content.Contains("<plist>");
+        }
 
-        private void ParseBookmarks(string json)
+        private bool IsJson(string content)
+        {
+            return content.StartsWith("{") || content.StartsWith("[");
+        }
+
+        private void ParseBookmarks(string content)
         {
             try
             {
-                var parsedJson = JArray.Parse(json);
+                content = content.Trim();
 
-                // Clear existing bookmarks
-                Bookmarks.Clear();
-
-                foreach (var item in parsedJson)
+                if (IsPlistXml(content))
                 {
-                    // If the item contains a top-level name, treat it as a folder
-                    if (item["toplevel_name"] != null)
+                    // XML Parsing
+                    var bookmarks = ParsePlistXml(content);
+                    Bookmarks.Clear();
+                    foreach (var bookmark in bookmarks)
                     {
-                        var topLevelFolder = new Bookmark
-                        {
-                            Name = item["toplevel_name"].ToString(),
-                            IsFolder = true
-                        };
-
-                        if (item["children"] != null)
-                        {
-                            foreach (var child in item["children"])
-                            {
-                                var bookmark = ParseBookmark(child);
-                                topLevelFolder.Children.Add(bookmark);
-                            }
-                        }
-
-                        Bookmarks.Add(topLevelFolder);
-                    }
-                    else
-                    {
-                        // Directly parse other bookmarks that do not have a "toplevel_name"
-                        var bookmark = ParseBookmark(item);
                         Bookmarks.Add(bookmark);
                     }
+                }
+                else if (IsJson(content))
+                {
+                    // JSON Parsing
+                    var parsedJson = JArray.Parse(content);
+                    Bookmarks.Clear();
+                    foreach (var item in parsedJson)
+                    {
+                        if (item["toplevel_name"] != null)
+                        {
+                            var topLevelFolder = new Bookmark
+                            {
+                                Name = item["toplevel_name"].ToString(),
+                                IsFolder = true
+                            };
+
+                            if (item["children"] != null)
+                            {
+                                foreach (var child in item["children"])
+                                {
+                                    var bookmark = ParseBookmark(child);
+                                    topLevelFolder.Children.Add(bookmark);
+                                }
+                            }
+
+                            Bookmarks.Add(topLevelFolder);
+                        }
+                        else
+                        {
+                            var bookmark = ParseBookmark(item);
+                            Bookmarks.Add(bookmark);
+                        }
+                    }
+                }
+                else
+                {
+                    throw new FormatException("Unrecognized content format.");
                 }
 
                 // Force UI refresh
@@ -1282,8 +1307,92 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
             catch (Exception ex)
             {
-                CustomMessageBox.Show("Error parsing bookmarks: " + ex.Message, "Confirmation", MessageBoxButton.OK);
+                CustomMessageBox.Show("Error parsing bookmarks: " + ex.Message, "Error", MessageBoxButton.OK);
             }
+        }
+
+        private ObservableCollection<Bookmark> ParsePlistXml(string xmlContent)
+        {
+            var bookmarks = new ObservableCollection<Bookmark>();
+            var xDoc = XDocument.Parse(xmlContent);
+
+            var managedFavorites = xDoc.Descendants("array").FirstOrDefault();
+            if (managedFavorites != null)
+            {
+                foreach (var dict in managedFavorites.Elements("dict"))
+                {
+                    var bookmark = ConvertPlistDictToBookmark(dict);
+                    if (bookmark != null)
+                    {
+                        bookmarks.Add(bookmark);
+                    }
+                }
+            }
+
+            return bookmarks;
+        }
+
+
+        private Bookmark ConvertPlistDictToBookmark(XElement dictElement)
+        {
+            var bookmark = new Bookmark();
+            var children = new ObservableCollection<Bookmark>();
+            bool hasChildren = false;
+
+            string currentKey = null;
+            foreach (var element in dictElement.Elements())
+            {
+                if (element.Name == "key")
+                {
+                    currentKey = element.Value;
+                }
+                else if (currentKey != null)
+                {
+                    switch (currentKey)
+                    {
+                        case "toplevel_name":
+                            bookmark.Name = element.Value;
+                            bookmark.IsFolder = true;
+                            break;
+                        case "name":
+                            bookmark.Name = element.Value;
+                            break;
+                        case "url":
+                            bookmark.Url = element.Value;
+                            break;
+                        case "children":
+                            var childrenArray = element.Element("array");
+                            if (childrenArray != null)
+                            {
+                                hasChildren = true;
+                                foreach (var childDict in childrenArray.Elements("dict"))
+                                {
+                                    var childBookmark = ConvertPlistDictToBookmark(childDict);
+                                    if (childBookmark != null)
+                                    {
+                                        children.Add(childBookmark);
+                                    }
+                                }
+                            }
+                            break;
+                    }
+                    currentKey = null;
+                }
+            }
+
+            if (hasChildren)
+            {
+                bookmark.Children = children;
+                bookmark.IsFolder = true;
+            }
+
+            // Ensure we only return valid bookmarks
+            if (!string.IsNullOrEmpty(bookmark.Name) && (bookmark.IsFolder || !string.IsNullOrEmpty(bookmark.Url)))
+            {
+                return bookmark;
+            }
+
+            return null;
         }
 
         private Bookmark ParseBookmark(JToken token)
