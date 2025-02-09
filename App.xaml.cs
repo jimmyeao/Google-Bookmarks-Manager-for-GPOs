@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using Serilog;
+using System.Windows;
 
 namespace Google_Bookmarks_Manager_for_GPOs
 {
@@ -15,7 +16,25 @@ namespace Google_Bookmarks_Manager_for_GPOs
         #endregion Private Fields
 
         #region Public Constructors
+        protected override void OnStartup(StartupEventArgs e)
+        {
+            base.OnStartup(e);
 
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .WriteTo.Console()  // Log to console for debugging
+                .WriteTo.File("logs/bookmark-import-log.txt", rollingInterval: RollingInterval.Day)
+                .CreateLogger();
+
+            Log.Information("Application started.");
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            Log.Information("Application exited.");
+            Log.CloseAndFlush();
+            base.OnExit(e);
+        }
         public App()
         {
         }

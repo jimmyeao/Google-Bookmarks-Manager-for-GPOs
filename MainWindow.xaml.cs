@@ -12,11 +12,15 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
-using Microsoft.Data.Sqlite;
+using Claunia.PropertyList;
 using System.Windows.Input;
 using System.Windows.Media;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using System.Xml.Linq;
+using Serilog;
+using Windows.UI.WebUI;
+
+
 
 namespace Google_Bookmarks_Manager_for_GPOs
 {
@@ -63,64 +67,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
             return copy;
         }
-        private void ImportFromFirefox_Click(object sender, RoutedEventArgs e)
-        {
-            string profilePath = GetFirefoxProfilePath();
-            if (string.IsNullOrEmpty(profilePath))
-            {
-                CustomMessageBox.Show("Firefox profile not found.", "Error", MessageBoxButton.OK);
-                return;
-            }
-
-            string placesDbPath = Path.Combine(profilePath, "places.sqlite");
-            if (!File.Exists(placesDbPath))
-            {
-                CustomMessageBox.Show("places.sqlite file not found.", "Error", MessageBoxButton.OK);
-                return;
-            }
-
-            try
-            {
-                using (var connection = new SqliteConnection($"Data Source={placesDbPath}"))
-                {
-                    connection.Open();
-                    string query = @"SELECT b.title, p.url 
-                             FROM moz_bookmarks b 
-                             JOIN moz_places p ON b.fk = p.id 
-                             WHERE b.type = 1";  // Type 1 = Bookmark
-
-                    using (var command = new SqliteCommand(query, connection))
-                    using (var reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            string title = reader["title"]?.ToString() ?? "Unnamed";
-                            string url = reader["url"]?.ToString();
-
-                            if (!string.IsNullOrEmpty(url))
-                            {
-                                // Add each bookmark to your collection
-                                Bookmarks.Add(new Bookmark
-                                {
-                                    Name = title,
-                                    Url = url,
-                                    IsFolder = false
-                                });
-                            }
-                        }
-                    }
-                }
-
-                CustomMessageBox.Show("Bookmarks imported from Firefox!", "Success", MessageBoxButton.OK);
-            }
-            catch (Exception ex)
-            {
-                CustomMessageBox.Show($"Error importing Firefox bookmarks: {ex.Message}", "Error", MessageBoxButton.OK);
-            }
-        }
-
        
-
         private JObject ConvertBookmarkToFirefoxFormat(Bookmark bookmark)
         {
             var obj = new JObject
@@ -158,20 +105,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
-        private string GetFirefoxProfilePath()
-        {
-            string firefoxProfilesPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mozilla\\Firefox\\Profiles");
-            if (Directory.Exists(firefoxProfilesPath))
-            {
-                var profileDirs = Directory.GetDirectories(firefoxProfilesPath);
-                if (profileDirs.Length > 0)
-                {
-                    return profileDirs[0];  // Return the first profile found
-                }
-            }
-            return string.Empty;
-        }
-
+     
         public string SearchQuery
         {
             get => _searchQuery;
@@ -666,7 +600,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             {
                 string plistXml = macExportManager.GenerateMacPlistXml(Bookmarks);
                 SetClipboardTextWithRetry(plistXml);
-                CustomMessageBox.Show("Bookmarks successfully exported to macOS plist format and copied to the clipboard!", "Success", MessageBoxButton.OK);
+                //CustomMessageBox.Show("Bookmarks successfully exported to macOS plist format and copied to the clipboard!", "Success", MessageBoxButton.OK);
             }
             catch (Exception ex)
             {
@@ -1256,8 +1190,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
                 if (IsPlistXml(content))
                 {
-                    // XML Parsing
-                    var bookmarks = ParsePlistXml(content);
+                    // Use Claunia's parsing for plist content
+                    var bookmarks = ParsePlistWithClaunia(content);
                     Bookmarks.Clear();
                     foreach (var bookmark in bookmarks)
                     {
@@ -1266,35 +1200,12 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 }
                 else if (IsJson(content))
                 {
-                    // JSON Parsing
                     var parsedJson = JArray.Parse(content);
                     Bookmarks.Clear();
                     foreach (var item in parsedJson)
                     {
-                        if (item["toplevel_name"] != null)
-                        {
-                            var topLevelFolder = new Bookmark
-                            {
-                                Name = item["toplevel_name"].ToString(),
-                                IsFolder = true
-                            };
-
-                            if (item["children"] != null)
-                            {
-                                foreach (var child in item["children"])
-                                {
-                                    var bookmark = ParseBookmark(child);
-                                    topLevelFolder.Children.Add(bookmark);
-                                }
-                            }
-
-                            Bookmarks.Add(topLevelFolder);
-                        }
-                        else
-                        {
-                            var bookmark = ParseBookmark(item);
-                            Bookmarks.Add(bookmark);
-                        }
+                        var bookmark = item["toplevel_name"] != null ? ParseTopLevelBookmark(item) : ParseBookmark(item);
+                        if (bookmark != null) Bookmarks.Add(bookmark);
                     }
                 }
                 else
@@ -1302,7 +1213,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
                     throw new FormatException("Unrecognized content format.");
                 }
 
-                // Force UI refresh
                 OnPropertyChanged(nameof(Bookmarks));
             }
             catch (Exception ex)
@@ -1311,88 +1221,158 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
+        private Bookmark ParseTopLevelBookmark(JToken item)
+        {
+            var topLevelFolder = new Bookmark
+            {
+                Name = item["toplevel_name"].ToString(),
+                IsFolder = true
+            };
+
+            if (item["children"] != null)
+            {
+                foreach (var child in item["children"])
+                {
+                    var childBookmark = ParseBookmark(child);
+                    if (childBookmark != null)
+                    {
+                        topLevelFolder.Children.Add(childBookmark);
+                    }
+                }
+            }
+
+            return topLevelFolder;
+        }
+
+        private ObservableCollection<Bookmark> ParsePlistWithClaunia(string plistContent)
+        {
+            var bookmarks = new ObservableCollection<Bookmark>();
+
+            try
+            {
+                // Convert plist content to byte array
+                byte[] plistBytes = Encoding.UTF8.GetBytes(plistContent);
+
+                // Parse plist from byte array
+                var plistRoot = PropertyListParser.Parse(plistBytes);
+
+                if (plistRoot is NSDictionary rootDict && rootDict.ContainsKey("ManagedFavorites"))
+                {
+                    NSArray favoritesArray = (NSArray)rootDict["ManagedFavorites"];
+                    foreach (var item in favoritesArray)
+                    {
+                        if (item is NSDictionary dict)
+                        {
+                            var bookmark = ConvertPlistDictToBookmarkClaunia(dict);
+                            if (bookmark != null)
+                            {
+                                bookmarks.Add(bookmark);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error parsing Plist: {Message}", ex.Message);
+            }
+
+            return bookmarks;
+        }
+
+        private Bookmark ConvertPlistDictToBookmarkClaunia(NSDictionary dict)
+        {
+            var bookmark = new Bookmark
+            {
+                Name = dict.ContainsKey("toplevel_name") ? dict["toplevel_name"].ToString() : dict["name"]?.ToString(),
+                Url = dict.ContainsKey("url") ? dict["url"].ToString() : null,
+                IsFolder = dict.ContainsKey("children")
+            };
+
+            if (dict.ContainsKey("children") && dict["children"] is NSArray childrenArray)
+            {
+                bookmark.Children = new ObservableCollection<Bookmark>();
+                foreach (var child in childrenArray)
+                {
+                    if (child is NSDictionary childDict)
+                    {
+                        var childBookmark = ConvertPlistDictToBookmarkClaunia(childDict);
+                        if (childBookmark != null)
+                        {
+                            bookmark.Children.Add(childBookmark);
+                        }
+                    }
+                }
+            }
+
+            return bookmark;
+        }
+
+
         private ObservableCollection<Bookmark> ParsePlistXml(string xmlContent)
         {
             var bookmarks = new ObservableCollection<Bookmark>();
-            var xDoc = XDocument.Parse(xmlContent);
 
-            var managedFavorites = xDoc.Descendants("array").FirstOrDefault();
-            if (managedFavorites != null)
+            try
             {
-                foreach (var dict in managedFavorites.Elements("dict"))
+                // Convert the XML string to a byte array
+                byte[] plistBytes = Encoding.UTF8.GetBytes(xmlContent);
+
+                // Parse the plist from the byte array
+                var plistObject = (NSDictionary)PropertyListParser.Parse(plistBytes);
+
+                if (plistObject.ContainsKey("ManagedFavorites"))
                 {
-                    var bookmark = ConvertPlistDictToBookmark(dict);
-                    if (bookmark != null)
+                    var managedFavorites = plistObject["ManagedFavorites"] as NSArray;
+                    if (managedFavorites != null)
                     {
-                        bookmarks.Add(bookmark);
+                        foreach (var item in managedFavorites)
+                        {
+                            var dict = item as NSDictionary;
+                            if (dict != null)
+                            {
+                                var bookmark = ConvertPlistDictToBookmark(dict);
+                                if (bookmark != null)
+                                {
+                                    bookmarks.Add(bookmark);
+                                }
+                            }
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error parsing Plist: {Message}", ex.Message);
             }
 
             return bookmarks;
         }
 
 
-        private Bookmark ConvertPlistDictToBookmark(XElement dictElement)
+
+
+        private Bookmark ConvertPlistDictToBookmark(NSDictionary dict)
         {
-            var bookmark = new Bookmark();
-            var children = new ObservableCollection<Bookmark>();
-            bool hasChildren = false;
-
-            string currentKey = null;
-            foreach (var element in dictElement.Elements())
+            var bookmark = new Bookmark
             {
-                if (element.Name == "key")
+                Name = dict.ContainsKey("toplevel_name") ? dict["toplevel_name"].ToString() : dict["name"]?.ToString(),
+                Url = dict.ContainsKey("url") ? dict["url"].ToString() : null,
+                IsFolder = dict.ContainsKey("children")
+            };
+
+            if (dict.ContainsKey("children"))
+            {
+                var childrenArray = dict["children"] as NSArray;
+                if (childrenArray != null)
                 {
-                    currentKey = element.Value;
-                }
-                else if (currentKey != null)
-                {
-                    switch (currentKey)
-                    {
-                        case "toplevel_name":
-                            bookmark.Name = element.Value;
-                            bookmark.IsFolder = true;
-                            break;
-                        case "name":
-                            bookmark.Name = element.Value;
-                            break;
-                        case "url":
-                            bookmark.Url = element.Value;
-                            break;
-                        case "children":
-                            var childrenArray = element.Element("array");
-                            if (childrenArray != null)
-                            {
-                                hasChildren = true;
-                                foreach (var childDict in childrenArray.Elements("dict"))
-                                {
-                                    var childBookmark = ConvertPlistDictToBookmark(childDict);
-                                    if (childBookmark != null)
-                                    {
-                                        children.Add(childBookmark);
-                                    }
-                                }
-                            }
-                            break;
-                    }
-                    currentKey = null;
+                    bookmark.Children = new ObservableCollection<Bookmark>(
+                        childrenArray.Cast<NSDictionary>().Select(ConvertPlistDictToBookmark).Where(b => b != null)
+                    );
                 }
             }
 
-            if (hasChildren)
-            {
-                bookmark.Children = children;
-                bookmark.IsFolder = true;
-            }
-
-            // Ensure we only return valid bookmarks
-            if (!string.IsNullOrEmpty(bookmark.Name) && (bookmark.IsFolder || !string.IsNullOrEmpty(bookmark.Url)))
-            {
-                return bookmark;
-            }
-
-            return null;
+            return bookmark;
         }
 
         private Bookmark ParseBookmark(JToken token)
