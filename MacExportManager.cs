@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Claunia.PropertyList;
 using System.Xml;
 using System.Xml.Linq;
 
@@ -14,27 +15,43 @@ namespace Google_Bookmarks_Manager_for_GPOs
     {
         public string GenerateMacPlistXml(ObservableCollection<Bookmark> bookmarks)
         {
-            var plist = new XDocument(
-                new XDeclaration("1.0", "UTF-8", null),
-                new XElement("plist",
-                    new XAttribute("version", "1.0"),
-                    new XElement("dict",
-                        new XElement("key", "FavoritesBarEnabled"),
-                        new XElement("true"),
-                        new XElement("key", "ManagedFavorites"),
-                        new XElement("array", bookmarks.Select(b => ConvertBookmarkToPlistDict(b, isTopLevel: true)).Where(x => x != null))
-                    )
-                )
-            );
-
-            using (var writer = new StringWriter())
+            var rootDict = new NSDictionary
             {
-                writer.WriteLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-                writer.WriteLine("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
-                plist.Save(writer, SaveOptions.None);  // Save without additional indentation for plist compatibility
-                return writer.ToString();
+                { "FavoritesBarEnabled", true }
+            };
+
+            // Convert each bookmark to NSDictionary and create NSArray
+            var favoritesArray = new NSArray(bookmarks.Select(ConvertBookmarkToPlistDict).ToArray());
+            rootDict.Add("ManagedFavorites", favoritesArray);
+
+            // Serialize the dictionary to an XML plist format
+            using (var memoryStream = new MemoryStream())
+            {
+                PropertyListParser.SaveAsXml(rootDict, memoryStream);
+                return Encoding.UTF8.GetString(memoryStream.ToArray());
             }
         }
+
+        private NSDictionary ConvertBookmarkToPlistDict(Bookmark bookmark)
+        {
+            var dict = new NSDictionary
+            {
+                { bookmark.IsRootFolder ? "toplevel_name" : "name", bookmark.Name ?? "" }
+            };
+
+            if (!string.IsNullOrEmpty(bookmark.Url))
+            {
+                dict.Add("url", bookmark.Url);
+            }
+            else if (bookmark.Children.Any())
+            {
+                var childrenArray = new NSArray(bookmark.Children.Select(ConvertBookmarkToPlistDict).ToArray());
+                dict.Add("children", childrenArray);
+            }
+
+            return dict;
+        }
+
 
         private XElement ConvertBookmarkToPlistDict(Bookmark bookmark, bool isTopLevel = false)
         {
