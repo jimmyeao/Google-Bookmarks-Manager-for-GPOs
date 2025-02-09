@@ -600,7 +600,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             {
                 string plistXml = macExportManager.GenerateMacPlistXml(Bookmarks);
                 SetClipboardTextWithRetry(plistXml);
-                //CustomMessageBox.Show("Bookmarks successfully exported to macOS plist format and copied to the clipboard!", "Success", MessageBoxButton.OK);
+                CustomMessageBox.Show("Bookmarks successfully exported to macOS plist format and copied to the clipboard!", "Success", MessageBoxButton.OK);
             }
             catch (Exception ex)
             {
@@ -1499,6 +1499,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private void exportxml_Click(object sender, RoutedEventArgs e)
         {
             ExportBookmarksToMacPlist();
+
         }
     }
 }
