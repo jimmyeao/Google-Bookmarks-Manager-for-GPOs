@@ -1176,20 +1176,31 @@ namespace Google_Bookmarks_Manager_for_GPOs
             return content.StartsWith("{") || content.StartsWith("[");
         }
 
+        private string ReplaceTopLevelName(string content)
+        {
+            Log.Information("Replacing 'top_level_name' with 'name' in plist content.");
+            return content.Replace("<key>top_level_name</key>", "<key>name</key>");
+        }
+
         private void ParseBookmarks(string content)
         {
             try
             {
                 content = content.Trim();
+                Log.Information("Plist Content Preview (first 300 chars): {Content}", content.Substring(0, Math.Min(300, content.Length)));
+
+                // Preprocess to rename 'top_level_name' to 'name'
+                content = ReplaceTopLevelName(content);
 
                 if (IsPlistXml(content))
                 {
-                    // Use Claunia's parsing for plist content
+                    Log.Information("Parsing plist as XML after renaming keys.");
                     var bookmarks = ParsePlistWithClaunia(content);
                     Bookmarks.Clear();
                     foreach (var bookmark in bookmarks)
                     {
                         Bookmarks.Add(bookmark);
+                        Log.Information("Parsed bookmark: {Name}", bookmark.Name);
                     }
                 }
                 else if (IsJson(content))
@@ -1200,21 +1211,18 @@ namespace Google_Bookmarks_Manager_for_GPOs
                     foreach (var item in parsedJson)
                     {
                         Bookmark bookmark;
-                        if (item["toplevel_name"] != null)
-                        {
-                            bookmark = ParseTopLevelBookmark(item);
-                        }
-                        else
+                        if (item["name"] != null) // After renaming, 'name' should exist
                         {
                             bookmark = ParseBookmark(item);
                         }
-
-                        if (bookmark != null)
+                        else
                         {
-                            // Ensure folder status is correctly marked
-                            MarkFolderStatus(bookmark);
-                            Bookmarks.Add(bookmark);
+                            Log.Warning("Bookmark without a 'name' key found.");
+                            continue;
                         }
+
+                        MarkFolderStatus(bookmark);
+                        Bookmarks.Add(bookmark);
                     }
                 }
                 else
@@ -1226,9 +1234,11 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
             catch (Exception ex)
             {
+                Log.Error("Error parsing bookmarks: {Message}", ex.Message);
                 CustomMessageBox.Show("Error parsing bookmarks: " + ex.Message, "Error", MessageBoxButton.OK);
             }
         }
+
 
         private void MarkFolderStatus(Bookmark bookmark)
         {
