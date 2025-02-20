@@ -16,27 +16,33 @@ namespace Google_Bookmarks_Manager_for_GPOs
     public class MacExportManager
     {
 
-        public string GenerateMacPlistXml(ObservableCollection<Bookmark> bookmarks)
+        public string GenerateMacPlistXml(ObservableCollection<Bookmark> bookmarks, string topLevelFolderName)
         {
             var plist = new XElement("plist", new XAttribute("version", "1.0"));
+
+            var managedFavoritesArray = new XElement("array",
+                new XElement("dict",  // Ensure top_level_name is inside ManagedFavorites
+                    new XElement("key", "top_level_name"),
+                    new XElement("string", topLevelFolderName ?? "Default Folder")
+                ),
+                bookmarks.Select(ConvertBookmarkToXml) // Convert the rest of the bookmarks
+            );
+
             var rootDict = new XElement("dict",
                 new XElement("key", "FavoritesBarEnabled"),
                 new XElement("true"),
                 new XElement("key", "ManagedFavorites"),
-                new XElement("array", bookmarks.Select((b, i) => ConvertBookmarkToXml(b, i == 0)))
+                managedFavoritesArray // Add the correctly structured array
             );
 
             plist.Add(rootDict);
-
             var xml = new XDocument(new XDeclaration("1.0", "utf-8", null), plist);
 
-            // Convert the XDocument to string
-            using (var memoryStream = new System.IO.MemoryStream())
+            // Convert the XDocument to string and insert DOCTYPE manually
+            using (var memoryStream = new MemoryStream())
             {
-                xml.Save(memoryStream, System.Xml.Linq.SaveOptions.None);
+                xml.Save(memoryStream, SaveOptions.None);
                 string xmlString = Encoding.UTF8.GetString(memoryStream.ToArray());
-
-                // Insert the DOCTYPE declaration manually
                 string doctype = "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n";
                 int insertIndex = xmlString.IndexOf("<plist");
                 return xmlString.Insert(insertIndex, doctype);
@@ -44,32 +50,33 @@ namespace Google_Bookmarks_Manager_for_GPOs
         }
 
 
-        private XElement ConvertBookmarkToXml(Bookmark bookmark, bool isTopLevel)
-    {
-        var dictElement = new XElement("dict");
 
-        // Add "top_level_name" for the first bookmark, otherwise "name"
-        dictElement.Add(new XElement("key", isTopLevel ? "top_level_name" : "name"));
-        dictElement.Add(new XElement("string", bookmark.Name ?? ""));
-
-        if (!string.IsNullOrEmpty(bookmark.Url))
+        private XElement ConvertBookmarkToXml(Bookmark bookmark)
         {
-            dictElement.Add(new XElement("key", "url"), new XElement("string", bookmark.Url));
+            var dictElement = new XElement("dict");
+
+            dictElement.Add(new XElement("key", "name"));
+            dictElement.Add(new XElement("string", bookmark.Name ?? ""));
+
+            if (!string.IsNullOrEmpty(bookmark.Url))
+            {
+                dictElement.Add(new XElement("key", "url"), new XElement("string", bookmark.Url));
+            }
+
+            if (bookmark.Children.Any())
+            {
+                dictElement.Add(new XElement("key", "children"));
+                var childrenArray = new XElement("array", bookmark.Children.Select(ConvertBookmarkToXml));
+                dictElement.Add(childrenArray);
+            }
+
+            return dictElement;
         }
 
-        if (bookmark.Children.Any())
-        {
-            dictElement.Add(new XElement("key", "children"));
-            var childrenArray = new XElement("array", bookmark.Children.Select(child => ConvertBookmarkToXml(child, false)));
-            dictElement.Add(childrenArray);
-        }
-
-        return dictElement;
-    }
 
 
 
-    private NSDictionary CreateTopLevelDictionary(Bookmark bookmark, bool isFirst)
+        private NSDictionary CreateTopLevelDictionary(Bookmark bookmark, bool isFirst)
         {
             var dict = new NSDictionary();
 

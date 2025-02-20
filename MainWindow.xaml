@@ -11,9 +11,8 @@
         TextElement.FontWeight="Regular"
         TextElement.FontSize="12"
         FontFamily="{materialDesign:MaterialDesignFont}"
-
-         TextOptions.TextFormattingMode="Ideal"
-         TextOptions.TextRenderingMode="Auto">
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="Auto">
 
     <Window.Resources>
         <local:FolderIconConverter x:Key="FolderIconConverter" />
@@ -23,40 +22,50 @@
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="2*" />
-            <!-- TreeView Panel -->
             <ColumnDefinition Width="3*" />
-            <!-- Details Panel -->
         </Grid.ColumnDefinitions>
 
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <!-- Main Content (TreeView + Details) -->
             <RowDefinition Height="Auto" />
-            <!-- Buttons -->
             <RowDefinition Height="Auto" />
-            <!-- Browser Import Controls -->
         </Grid.RowDefinitions>
 
+        <!-- Top-Level Folder Name Panel -->
+        <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="10">
+            <TextBlock Text="Top-Level Folder Name:" 
+                       FontWeight="Bold"
+                       VerticalAlignment="Center"
+                       Margin="0,0,10,0"
+                       Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" />
+            <TextBox x:Name="TopLevelFolderNameTextBox"
+                     Text="{Binding TopLevelFolderName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{DynamicResource MaterialDesignTextBox}"
+                     Width="300"
+                     Margin="0,5,0,10"/>
+        </StackPanel>
+
         <!-- TreeView Panel -->
-        <Border Grid.Row="0" Grid.Column="0" BorderThickness="1" Margin="5" Style="{DynamicResource MaterialDesignToolBarMainPanelBorderStyle}">
+        <Border Grid.Row="1" Grid.Column="0" BorderThickness="1" Margin="5" 
+                Style="{DynamicResource MaterialDesignToolBarMainPanelBorderStyle}">
             <TreeView x:Name="BookmarksTreeView" ItemsSource="{Binding Bookmarks}"
-          Style="{DynamicResource MaterialDesignTreeView}"
-          SelectedItemChanged="BookmarksTreeView_SelectedItemChanged"
-          AllowDrop="True"
-          DragOver="BookmarksTreeView_DragOver"
-          Drop="BookmarksTreeView_Drop"
-          PreviewMouseRightButtonDown="BookmarksTreeView_PreviewMouseRightButtonDown"
+                      Style="{DynamicResource MaterialDesignTreeView}"
+                      SelectedItemChanged="BookmarksTreeView_SelectedItemChanged"
+                      AllowDrop="True"
+                      DragOver="BookmarksTreeView_DragOver"
+                      Drop="BookmarksTreeView_Drop"
+                      PreviewMouseRightButtonDown="BookmarksTreeView_PreviewMouseRightButtonDown"
                       PreviewMouseLeftButtonDown="BookmarksTreeView_PreviewMouseLeftButtonDown"
                       PreviewMouseMove="BookmarksTreeView_PreviewMouseMove"
-          KeyDown="TreeView_KeyDown"
-          >
+                      KeyDown="TreeView_KeyDown">
 
                 <TreeView.ItemTemplate>
                     <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{Binding Name}" Margin="5,0,0,0"
-                       Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
-                       Style="{DynamicResource MaterialDesignBody1TextBlock}" />
+                                       Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
+                                       Style="{DynamicResource MaterialDesignBody1TextBlock}" />
                         </StackPanel>
                     </HierarchicalDataTemplate>
                 </TreeView.ItemTemplate>
@@ -64,16 +73,11 @@
                 <TreeView.Resources>
                     <ContextMenu x:Key="TreeViewContextMenu" Style="{DynamicResource MaterialDesignContextMenu}">
                         <MenuItem Header="Add Top-Level Folder" Click="AddTopLevelFolder_Click" />
-                        <MenuItem Header="Add Nested Folder" Click="AddNestedFolder_Click"
-                                  
-                      CommandParameter="{Binding}" />
+                        <MenuItem Header="Add Nested Folder" Click="AddNestedFolder_Click" CommandParameter="{Binding}" />
                         <MenuItem Header="Sort Alphabetically" Click="SortAlphabetically_Click" CommandParameter="{Binding}" />
-
-                        <MenuItem Header="Add Nested Bookmark" Click="AddNestedBookmark_Click"
-                      CommandParameter="{Binding}" />
+                        <MenuItem Header="Add Nested Bookmark" Click="AddNestedBookmark_Click" CommandParameter="{Binding}" />
                         <Separator />
-                        <MenuItem Header="Delete" Click="DeleteBookmark_Click"
-                      CommandParameter="{Binding}" />
+                        <MenuItem Header="Delete" Click="DeleteBookmark_Click" CommandParameter="{Binding}" />
                     </ContextMenu>
                 </TreeView.Resources>
 
@@ -86,59 +90,67 @@
         </Border>
 
         <!-- Details Panel -->
-        <StackPanel Grid.Row="0" Grid.Column="1" Margin="10">
-            <!-- Main Folder Name Field -->
-            <Grid Margin="0,5" />
+        <StackPanel Grid.Row="1" Grid.Column="1" Margin="10">
+            <Label Content="Bookmark Details" FontWeight="Bold" FontSize="16" Margin="0,20,0,10" 
+                   Style="{DynamicResource MaterialDesignLabel}" />
 
-            <!-- Section Title -->
-            <Label Content="Bookmark Details" FontWeight="Bold" FontSize="16" Margin="0,20,0,10" Style="{DynamicResource MaterialDesignLabel}" />
-
-            <!-- Name Field -->
             <Grid Margin="0,5">
                 <TextBox x:Name="bookmarkNameTextBox"
-                 Text="{Binding SelectedBookmark.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                 materialDesign:HintAssist.Hint="Enter Bookmark Name"
-                 Style="{DynamicResource MaterialDesignTextBox}"
-                 Margin="0,5,0,5" />
+                         Text="{Binding SelectedBookmark.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         materialDesign:HintAssist.Hint="Enter Bookmark Name"
+                         Style="{DynamicResource MaterialDesignTextBox}"
+                         Margin="0,5,0,5" />
             </Grid>
 
-            <!-- URL Field -->
             <Grid Margin="0,5">
                 <TextBox x:Name="bookmarkUrlTextBox"
-                 Text="{Binding SelectedBookmark.Url, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                 materialDesign:HintAssist.Hint="Enter URL"
-                 Style="{DynamicResource MaterialDesignTextBox}"
-                 Margin="0,5,0,5" />
+                         Text="{Binding SelectedBookmark.Url, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         materialDesign:HintAssist.Hint="Enter URL"
+                         Style="{DynamicResource MaterialDesignTextBox}"
+                         Margin="0,5,0,5" />
             </Grid>
 
-            <!-- Save and Delete Buttons -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,20,0,0">
-                <Button Content="Save" Click="SaveBookmark_Click" Width="100" Margin="0,0,10,0" Style="{DynamicResource MaterialDesignRaisedButton}" />
-                <Button Content="Delete" Click="DeleteBookmark_Click" Width="100" Style="{DynamicResource MaterialDesignRaisedButton}" />
+                <Button Content="Save" Click="SaveBookmark_Click" Width="100" Margin="0,0,10,0" 
+                        Style="{DynamicResource MaterialDesignRaisedButton}" />
+                <Button Content="Delete" Click="DeleteBookmark_Click" Width="100" 
+                        Style="{DynamicResource MaterialDesignRaisedButton}" />
             </StackPanel>
+
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,20,0,0">
-            <TextBox Width="200" Margin="10" Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" 
-         materialDesign:HintAssist.Hint="Search Bookmarks" Style="{DynamicResource MaterialDesignTextBox}" />
+                <TextBox Width="200" Margin="10" Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" 
+                         materialDesign:HintAssist.Hint="Search Bookmarks" 
+                         Style="{DynamicResource MaterialDesignTextBox}" />
             </StackPanel>
         </StackPanel>
 
         <!-- Action Buttons -->
-        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10">
-            <Button x:Name="exportToBrowserButton" Content="Export to Browser" Click="ExportToBrowser_Click" Width="150" Margin="5" Style="{DynamicResource MaterialDesignRaisedButton}" />
-            <Button x:Name="importBookmarksButton" Content="Import Clipboard" Click="importBookmarksButton_Click" Width="150" Margin="5" Style="{DynamicResource MaterialDesignRaisedButton}" />
-            <Button x:Name="clearFormButton" Content="Clear Form" Click="clearFormButton_Click" Width="100" Margin="5" Style="{DynamicResource MaterialDesignRaisedButton}" />
-            <Button x:Name="exportClipboardButton" Content="Export JSON" Click="exportBookmarksButton_Click_1" Width="155" Margin="5" Style="{DynamicResource MaterialDesignRaisedButton}" />
-            <Button x:Name="exportXMLformatted" Content="Export Plist" Click="exportxml_Click" Width="120" Margin="5" Style="{DynamicResource MaterialDesignRaisedButton}" />
-            <CheckBox x:Name="darkModeCheckBox" Content="Dark Mode" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" Margin="5" Style="{DynamicResource MaterialDesignCheckBox}" />
-        </StackPanel>
         <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10">
+            <Button Content="Export to Browser" Click="ExportToBrowser_Click" Width="150" Margin="5" 
+                    Style="{DynamicResource MaterialDesignRaisedButton}" />
+            <Button Content="Import Clipboard" Click="importBookmarksButton_Click" Width="150" Margin="5" 
+                    Style="{DynamicResource MaterialDesignRaisedButton}" />
+            <Button Content="Clear Form" Click="clearFormButton_Click" Width="100" Margin="5" 
+                    Style="{DynamicResource MaterialDesignRaisedButton}" />
+            <Button Content="Export JSON" Click="exportBookmarksButton_Click_1" Width="155" Margin="5" 
+                    Style="{DynamicResource MaterialDesignRaisedButton}" />
+            <Button Content="Export Plist" Click="exportxml_Click" Width="120" Margin="5" 
+                    Style="{DynamicResource MaterialDesignRaisedButton}" />
+            <CheckBox Content="Dark Mode" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" Margin="5" 
+                      Style="{DynamicResource MaterialDesignCheckBox}" />
+        </StackPanel>
+
+        <!-- Browser Selection ComboBox (Restored) -->
+        <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10">
             <ComboBox x:Name="browserSelectionComboBox" Width="200" Margin="5"
-              materialDesign:HintAssist.Hint="Select Browser" 
-              Style="{DynamicResource MaterialDesignComboBox}">
+                      materialDesign:HintAssist.Hint="Select Browser" 
+                      Style="{DynamicResource MaterialDesignComboBox}">
                 <ComboBoxItem Content="Google Chrome" />
                 <ComboBoxItem Content="Microsoft Edge" />
             </ComboBox>
-            <Button Content="Import from Browser" Click="ImportFromBrowser_Click" Width="200" Margin="5" Style="{DynamicResource MaterialDesignRaisedButton}" />
+            <Button Content="Import from Browser" Click="ImportFromBrowser_Click" Width="200" Margin="5" 
+                    Style="{DynamicResource MaterialDesignRaisedButton}" />
         </StackPanel>
+
     </Grid>
 </Window>
