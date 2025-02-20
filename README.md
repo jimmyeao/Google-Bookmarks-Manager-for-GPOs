@@ -1,4 +1,5 @@
-https://github.com/jimmyeao/Google-Bookmarks-Manager-for-GPOs/actions/workflows/codeql.yml/badge.svg
+![CodeQL](https://github.com/jimmyeao/Google-Bookmarks-Manager-for-GPOs/actions/workflows/codeql.yml/badge.svg)
+[![License](https://img.shields.io/badge/License-MIT-blue)](#license)
 
 # Google Bookmarks Manager for GPOs
 
