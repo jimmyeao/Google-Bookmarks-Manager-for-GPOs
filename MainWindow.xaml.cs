@@ -36,6 +36,9 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private static int _idCounter = 1;
         private ChromeManager chromeManager = new ChromeManager();
         private EdgeManager edgeManager = new EdgeManager();
+        private static readonly string AppDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GoogleBookmarksManager");
+        private static readonly string BookmarksFilePath = Path.Combine(AppDataFolder, "bookmarks.json"); // JSON Format
+        private static readonly string BookmarksPlistPath = Path.Combine(AppDataFolder, "bookmarks.plist"); // Plist Format (if needed)
 
         private string _searchQuery;
         private ObservableCollection<Bookmark> _originalBookmarks;
@@ -94,6 +97,66 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return obj;
         }
+        private void SaveBookmarksToFile()
+        {
+            try
+            {
+                if (!Directory.Exists(AppDataFolder))
+                {
+                    Directory.CreateDirectory(AppDataFolder);
+                }
+
+                // Reuse JSON export function for consistency
+                var exportList = new JArray(Bookmarks.Select(bookmark => ConvertBookmarkToOriginalFormat(bookmark)));
+
+                var json = new JArray(
+                    new JObject { ["toplevel_name"] = TopLevelFolderName ?? "Default Folder" }
+                );
+                json.Merge(exportList); // Append the bookmarks to match the correct format
+
+                File.WriteAllText(BookmarksFilePath, json.ToString(Formatting.Indented));
+                Log.Information("Bookmarks successfully saved on exit.");
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error saving bookmarks on exit: {Message}", ex.Message);
+            }
+        }
+
+
+        private void LoadBookmarksFromFile()
+        {
+            try
+            {
+                if (File.Exists(BookmarksFilePath))
+                {
+                    string jsonContent = File.ReadAllText(BookmarksFilePath);
+                    var parsedJson = JArray.Parse(jsonContent);
+
+                    Bookmarks.Clear();
+
+                    foreach (var item in parsedJson)
+                    {
+                        if (item["toplevel_name"] != null)
+                        {
+                            TopLevelFolderName = item["toplevel_name"].ToString();
+                            Log.Information("Loaded Top-Level Folder Name: {TopLevelFolderName}", TopLevelFolderName);
+                        }
+                        else if (item["name"] != null) // Ensure we only process valid bookmark objects
+                        {
+                            var bookmark = ParseBookmark(item);
+                            MarkFolderStatus(bookmark);
+                            Bookmarks.Add(bookmark);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error loading bookmarks: {Message}", ex.Message);
+            }
+        }
+
 
         private void AppendBookmarkToHtml(Bookmark bookmark, StringBuilder html, int indentLevel)
         {
@@ -162,8 +225,13 @@ namespace Google_Bookmarks_Manager_for_GPOs
             _originalBookmarks = new ObservableCollection<Bookmark>(Bookmarks);  // Backup the original list
 
             DataContext = this;
+            LoadBookmarksFromFile();
+            this.Closing += MainWindow_Closing;
         }
-
+        private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            SaveBookmarksToFile();
+        }
         private void TextBlock_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             if (sender is TextBlock textBlock && textBlock.DataContext is Bookmark bookmark)
@@ -1004,7 +1072,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             };
         }
 
-        private JObject ConvertBookmarkToOriginalFormat(Bookmark bookmark, bool isTopLevel = false)
+        public JObject ConvertBookmarkToOriginalFormat(Bookmark bookmark, bool isTopLevel = false)
         {
             var obj = new JObject();
 
@@ -1192,8 +1260,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private string ReplaceTopLevelName(string content)
         {
-            Log.Information("Replacing 'top_level_name' with 'name' in plist content.");
-            return content.Replace("<key>top_level_name</key>", "<key>name</key>");
+            Log.Information("Replacing 'toplevel_name' with 'name' in plist content.");
+            return content.Replace("<key>toplevel_name</key>", "<key>name</key>");
         }
 
         private void ParseBookmarks(string content)
@@ -1277,16 +1345,16 @@ namespace Google_Bookmarks_Manager_for_GPOs
                     NSArray favoritesArray = (NSArray)rootDict["ManagedFavorites"];
                     if (favoritesArray.Count > 0 && favoritesArray.ElementAt(0) is NSDictionary firstEntry)
                     {
-                        if (firstEntry.ContainsKey("top_level_name"))
+                        if (firstEntry.ContainsKey("toplevel_name"))
                         {
-                            return firstEntry["top_level_name"].ToString();
+                            return firstEntry["toplevel_name"].ToString();
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                Log.Error("Error extracting Plist top_level_name: {Message}", ex.Message);
+                Log.Error("Error extracting Plist toplevel_name: {Message}", ex.Message);
             }
 
             return string.Empty; // Return empty string if not found
@@ -1354,51 +1422,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             return bookmark;
         }
 
-        //private List<Bookmark> ParsePlistWithClaunia(string plistContent)
-        // {
-        //     var bookmarks = new List<Bookmark>();
-
-        //     try
-        //     {
-        //         byte[] plistBytes = Encoding.UTF8.GetBytes(plistContent);
-        //         var rootDict = (NSDictionary)PropertyListParser.Parse(plistBytes);
-
-        //         if (rootDict.ContainsKey("ManagedFavorites"))
-        //         {
-        //             var managedFavorites = (NSArray)rootDict["ManagedFavorites"];
-
-        //             foreach (var item in managedFavorites)
-        //             {
-        //                 if (item is NSDictionary dict)
-        //                 {
-        //                     // Handle top_level_name separately
-        //                     if (dict.ContainsKey("top_level_name"))
-        //                     {
-        //                         TopLevelFolderName = dict["top_level_name"].ToString();
-        //                         Log.Information("Plist Top-Level Folder Name: {TopLevelFolderName}", TopLevelFolderName);
-        //                         continue; // Skip adding it to bookmarks
-        //                     }
-
-        //                     if (!dict.ContainsKey("name"))
-        //                     {
-        //                         Log.Warning("Plist entry missing 'name' key. Skipping.");
-        //                         continue;
-        //                     }
-
-        //                     var bookmark = ParsePlistBookmark(dict);
-        //                     bookmarks.Add(bookmark);
-        //                 }
-        //             }
-        //         }
-        //     }
-        //     catch (Exception ex)
-        //     {
-        //         Log.Error("Error parsing plist bookmarks: {Message}", ex.Message);
-        //         CustomMessageBox.Show("Error parsing plist bookmarks: " + ex.Message, "Error", MessageBoxButton.OK);
-        //     }
-
-        //     return bookmarks;
-        // }
+        
         public ObservableCollection<Bookmark> ParsePlistWithClaunia(string plistContent)
         {
             var bookmarks = new ObservableCollection<Bookmark>();
@@ -1412,10 +1436,10 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 {
                     NSArray managedFavorites = (NSArray)rootDict["ManagedFavorites"];
 
-                    // Extract the top_level_name from rootDict
-                    if (rootDict.ContainsKey("top_level_name"))
+                    // Extract the toplevel_name from rootDict
+                    if (rootDict.ContainsKey("toplevel_name"))
                     {
-                        TopLevelFolderName = rootDict["top_level_name"].ToString();
+                        TopLevelFolderName = rootDict["toplevel_name"].ToString();
                         Log.Information("Plist Top-Level Folder Name: {TopLevelFolderName}", TopLevelFolderName);
                     }
 

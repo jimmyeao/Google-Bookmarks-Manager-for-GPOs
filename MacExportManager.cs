@@ -21,8 +21,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
             var plist = new XElement("plist", new XAttribute("version", "1.0"));
 
             var managedFavoritesArray = new XElement("array",
-                new XElement("dict",  // Ensure top_level_name is inside ManagedFavorites
-                    new XElement("key", "top_level_name"),
+                new XElement("dict",  // Ensure top level_name is inside ManagedFavorites
+                    new XElement("key", "toplevel_name"),
                     new XElement("string", topLevelFolderName ?? "Default Folder")
                 ),
                 bookmarks.Select(ConvertBookmarkToXml) // Convert the rest of the bookmarks
@@ -82,7 +82,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             if (isFirst && bookmark.IsRootFolder)
             {
-                dict.Add("top_level_name", bookmark.Name ?? "");
+                dict.Add("toplevel_name", bookmark.Name ?? "");
             }
             else
             {
@@ -109,7 +109,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             if (bookmark.IsRootFolder)
             {
-                dict.Add("top_level_name", bookmark.Name ?? "");
+                dict.Add("toplevel_name", bookmark.Name ?? "");
             }
             else
             {
@@ -137,7 +137,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             if (bookmark.IsRootFolder)
             {
-                dict.Add("top_level_name", bookmark.Name ?? "");
+                dict.Add("toplevel_name", bookmark.Name ?? "");
             }
             else
             {

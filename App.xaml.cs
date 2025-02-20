@@ -1,5 +1,10 @@
-﻿using Serilog;
+﻿using Newtonsoft.Json.Linq;
+using Serilog;
+using System;
+using System.IO;
+using System.Linq;
 using System.Windows;
+using Newtonsoft.Json;
 
 namespace Google_Bookmarks_Manager_for_GPOs
 {
@@ -12,7 +17,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private ResourceDictionary darkTheme;
         private ResourceDictionary lightTheme;
-
+      
         #endregion Private Fields
 
         #region Public Constructors
@@ -32,9 +37,12 @@ namespace Google_Bookmarks_Manager_for_GPOs
         protected override void OnExit(ExitEventArgs e)
         {
             Log.Information("Application exited.");
+            
             Log.CloseAndFlush();
             base.OnExit(e);
+            
         }
+   
         public App()
         {
         }
