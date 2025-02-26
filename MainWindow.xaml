@@ -136,7 +136,7 @@
                     Style="{DynamicResource MaterialDesignRaisedButton}" />
             <Button Content="Export Plist" Click="exportxml_Click" Width="120" Margin="5" 
                     Style="{DynamicResource MaterialDesignRaisedButton}" />
-            <CheckBox Content="Dark Mode" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" Margin="5" 
+            <CheckBox x:Name="darkModeCheckBox" Content="Dark Mode" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" Margin="5" 
                       Style="{DynamicResource MaterialDesignCheckBox}" />
         </StackPanel>
 

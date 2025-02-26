@@ -217,7 +217,18 @@ namespace Google_Bookmarks_Manager_for_GPOs
         public MainWindow()
         {
             InitializeComponent();
+            // Upgrade settings if required (only once after an update)
+            if (Properties.Settings.Default.UpgradeRequired)
+            {
+                Properties.Settings.Default.Upgrade(); // Migrate old settings
+                Properties.Settings.Default.UpgradeRequired = false; // Prevent further upgrades
+                Properties.Settings.Default.Save(); // Persist setting
+            }
 
+            // Restore the saved theme preference
+            bool isDarkMode = Properties.Settings.Default.IsDarkMode;
+            darkModeCheckBox.IsChecked = isDarkMode;
+            SwitchTheme(isDarkMode);
             // Ensure initialization happens only once
             if (Bookmarks == null)
             {
@@ -1188,6 +1199,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private void CheckBox_Checked(object sender, RoutedEventArgs e)
         {
             SwitchTheme(true);
+            SaveThemePreference(true);
         }
 
         private void AddNestedFolder_Click(object sender, RoutedEventArgs e)
@@ -1232,7 +1244,15 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private void CheckBox_Unchecked(object sender, RoutedEventArgs e)
         {
             SwitchTheme(false);
+            SaveThemePreference(false);
         }
+        private void SaveThemePreference(bool isDarkMode)
+        {
+            Properties.Settings.Default.IsDarkMode = isDarkMode;
+            Properties.Settings.Default.UpgradeRequired = false; // Mark settings as upgraded
+            Properties.Settings.Default.Save(); // Persist setting
+        }
+
 
         private void SwitchTheme(bool isDark)
         {
