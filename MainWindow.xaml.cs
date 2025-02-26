@@ -1404,12 +1404,14 @@ namespace Google_Bookmarks_Manager_for_GPOs
             var bookmark = new Bookmark
             {
                 Name = dict.ContainsKey("name") ? dict["name"].ToString() : "Unnamed Folder",
-                Url = dict.ContainsKey("url") ? dict["url"].ToString() : null
+                Url = dict.ContainsKey("url") ? dict["url"].ToString() : null,
+                IsFolder = dict.ContainsKey("children") && dict["children"] is NSArray // Ensure IsFolder is correctly set
             };
 
             // Recursively process children
             if (dict.ContainsKey("children") && dict["children"] is NSArray childrenArray)
             {
+                bookmark.Children = new ObservableCollection<Bookmark>();
                 foreach (var child in childrenArray)
                 {
                     if (child is NSDictionary childDict)
@@ -1422,7 +1424,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
             return bookmark;
         }
 
-        
+
+
         public ObservableCollection<Bookmark> ParsePlistWithClaunia(string plistContent)
         {
             var bookmarks = new ObservableCollection<Bookmark>();
