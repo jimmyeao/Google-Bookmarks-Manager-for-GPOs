@@ -34,9 +34,22 @@ namespace Google_Bookmarks_Manager_for_GPOs
             Result = MessageBoxResult.Cancel;
             Close();
         }
+
         public static MessageBoxResult Show(string message, string caption, MessageBoxButton buttons)
         {
             var messageBox = new CustomMessageBox(message, caption, buttons);
+
+            // Center relative to MainWindow
+            if (Application.Current.MainWindow != null)
+            {
+                messageBox.Owner = Application.Current.MainWindow; // Set owner to main window
+                messageBox.WindowStartupLocation = WindowStartupLocation.CenterOwner; // Center on owner
+            }
+            else
+            {
+                messageBox.WindowStartupLocation = WindowStartupLocation.CenterScreen; // Fallback if no main window
+            }
+
             messageBox.ShowDialog(); // Show it modally
             return messageBox.Result; // Return the result (OK or Cancel)
         }

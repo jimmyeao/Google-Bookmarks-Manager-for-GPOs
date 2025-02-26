@@ -9,13 +9,8 @@ namespace Google_Bookmarks_Manager_for_GPOs  // Ensure this matches your project
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is bool isFolder)
-            {
-                return isFolder ? "📁" : "🔖"; // Folder and Bookmark Emoji
-            }
-            return null;
+            return (bool)value ? "📁" : "🔖"; // Folder or Bookmark Icon
         }
-
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {

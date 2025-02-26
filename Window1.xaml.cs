@@ -9,6 +9,15 @@ namespace Google_Bookmarks_Manager_for_GPOs
         public ImportWindow()
         {
             InitializeComponent();
+            if (Application.Current.MainWindow != null)
+            {
+                Owner = Application.Current.MainWindow; // Set the owner
+                WindowStartupLocation = WindowStartupLocation.CenterOwner; // Center on owner
+            }
+            else
+            {
+                WindowStartupLocation = WindowStartupLocation.CenterScreen; // Fallback
+            }
         }
 
         #endregion Public Constructors

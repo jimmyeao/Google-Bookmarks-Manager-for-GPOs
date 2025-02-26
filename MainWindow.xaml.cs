@@ -19,8 +19,7 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 using System.Xml.Linq;
 using Serilog;
 using Windows.UI.WebUI;
-
-
+using System.Reflection;
 
 namespace Google_Bookmarks_Manager_for_GPOs
 {
@@ -38,9 +37,24 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private static int _idCounter = 1;
         private ChromeManager chromeManager = new ChromeManager();
         private EdgeManager edgeManager = new EdgeManager();
-       
+        private static readonly string AppDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GoogleBookmarksManager");
+        private static readonly string BookmarksFilePath = Path.Combine(AppDataFolder, "bookmarks.json"); // JSON Format
+        private static readonly string BookmarksPlistPath = Path.Combine(AppDataFolder, "bookmarks.plist"); // Plist Format (if needed)
+
         private string _searchQuery;
         private ObservableCollection<Bookmark> _originalBookmarks;
+        private string _topLevelFolderName;
+
+        public string TopLevelFolderName
+        {
+            get => _topLevelFolderName;
+            set
+            {
+                _topLevelFolderName = value;
+                OnPropertyChanged(nameof(TopLevelFolderName));
+            }
+        }
+
         private string GenerateCRC32Checksum(string json)
         {
             using (var crc32 = new Crc32())
@@ -50,6 +64,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 return BitConverter.ToString(hash).Replace("-", "").ToLower();
             }
         }
+
         private ObservableCollection<Bookmark> DeepCopyBookmarks(ObservableCollection<Bookmark> source)
         {
             var copy = new ObservableCollection<Bookmark>();
@@ -67,7 +82,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
             return copy;
         }
-       
+
         private JObject ConvertBookmarkToFirefoxFormat(Bookmark bookmark)
         {
             var obj = new JObject
@@ -85,6 +100,64 @@ namespace Google_Bookmarks_Manager_for_GPOs
             return obj;
         }
 
+        private void SaveBookmarksToFile()
+        {
+            try
+            {
+                if (!Directory.Exists(AppDataFolder))
+                {
+                    Directory.CreateDirectory(AppDataFolder);
+                }
+
+                // Reuse JSON export function for consistency
+                var exportList = new JArray(Bookmarks.Select(bookmark => ConvertBookmarkToOriginalFormat(bookmark)));
+
+                var json = new JArray(
+                    new JObject { ["toplevel_name"] = TopLevelFolderName ?? "Default Folder" }
+                );
+                json.Merge(exportList); // Append the bookmarks to match the correct format
+
+                File.WriteAllText(BookmarksFilePath, json.ToString(Formatting.Indented));
+                Log.Information("Bookmarks successfully saved on exit.");
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error saving bookmarks on exit: {Message}", ex.Message);
+            }
+        }
+
+        private void LoadBookmarksFromFile()
+        {
+            try
+            {
+                if (File.Exists(BookmarksFilePath))
+                {
+                    string jsonContent = File.ReadAllText(BookmarksFilePath);
+                    var parsedJson = JArray.Parse(jsonContent);
+
+                    Bookmarks.Clear();
+
+                    foreach (var item in parsedJson)
+                    {
+                        if (item["toplevel_name"] != null)
+                        {
+                            TopLevelFolderName = item["toplevel_name"].ToString();
+                            Log.Information("Loaded Top-Level Folder Name: {TopLevelFolderName}", TopLevelFolderName);
+                        }
+                        else if (item["name"] != null) // Ensure we only process valid bookmark objects
+                        {
+                            var bookmark = ParseBookmark(item);
+                            MarkFolderStatus(bookmark);
+                            Bookmarks.Add(bookmark);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error loading bookmarks: {Message}", ex.Message);
+            }
+        }
 
         private void AppendBookmarkToHtml(Bookmark bookmark, StringBuilder html, int indentLevel)
         {
@@ -105,7 +178,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
-     
         public string SearchQuery
         {
             get => _searchQuery;
@@ -145,15 +217,51 @@ namespace Google_Bookmarks_Manager_for_GPOs
         public MainWindow()
         {
             InitializeComponent();
+            // Upgrade settings if required (only once after an update)
+            if (Properties.Settings.Default.UpgradeRequired)
+            {
+                Properties.Settings.Default.Upgrade(); // Migrate old settings
+                Properties.Settings.Default.UpgradeRequired = false; // Prevent further upgrades
+                Properties.Settings.Default.Save(); // Persist setting
+            }
 
+            // Restore the saved theme preference
+            bool isDarkMode = Properties.Settings.Default.IsDarkMode;
+            darkModeCheckBox.IsChecked = isDarkMode;
+            SwitchTheme(isDarkMode);
             // Ensure initialization happens only once
             if (Bookmarks == null)
             {
                 Bookmarks = new ObservableCollection<Bookmark>();
             }
             _originalBookmarks = new ObservableCollection<Bookmark>(Bookmarks);  // Backup the original list
-
+            string version = GetAppVersion();
+            this.Title = $"Bookmark Mangager fo r Intune/GPO - Version {version}";
             DataContext = this;
+            LoadBookmarksFromFile();
+            this.Closing += MainWindow_Closing;
+        }
+
+        private string GetAppVersion()
+        {
+            string version = Assembly.GetExecutingAssembly()
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                ?? Assembly.GetExecutingAssembly().GetName().Version?.ToString()
+                ?? "1.0.0.0";
+
+            // Remove any build metadata after '+'
+            int plusIndex = version.IndexOf('+');
+            if (plusIndex > 0)
+            {
+                version = version.Substring(0, plusIndex);
+            }
+
+            return version;
+        }
+
+        private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            SaveBookmarksToFile();
         }
 
         private void TextBlock_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -445,7 +553,10 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private void AddNestedBookmark_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is MenuItem menuItem && menuItem.CommandParameter is Bookmark parentFolder && parentFolder.IsFolder)
+            if (sender is MenuItem menuItem &&
+                menuItem.CommandParameter is Bookmark parentFolder &&
+                parentFolder != null && // Explicit null check
+                parentFolder.IsFolder)
             {
                 var newBookmark = new Bookmark { Name = "New Bookmark", Url = "http://", IsFolder = false };
 
@@ -524,7 +635,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
         {
             // Clear the TreeView by resetting the Bookmarks collection
             Bookmarks.Clear();
-
+            // clear the textboxes
+            TopLevelFolderNameTextBox.Text = string.Empty;
             // Clear the text boxes
             bookmarkNameTextBox.Text = string.Empty;
             bookmarkUrlTextBox.Text = string.Empty;
@@ -559,7 +671,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
                         edgeManager.ImportBookmarks(edgePath, Bookmarks);
                         break;
 
-                  
                     default:
                         CustomMessageBox.Show("Please select a valid browser.", "Error", MessageBoxButton.OK);
                         return;
@@ -573,6 +684,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 CustomMessageBox.Show($"Error importing {selectedBrowser} bookmarks: {ex.Message}", "Error", MessageBoxButton.OK);
             }
         }
+
         private void SetClipboardTextWithRetry(string text)
         {
             int retryCount = 5;
@@ -592,23 +704,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             throw new Exception("Failed to set clipboard text after multiple attempts.");
         }
-        private void ExportBookmarksToMacPlist()
-        {
-            MacExportManager macExportManager = new MacExportManager();
-
-            try
-            {
-                string plistXml = macExportManager.GenerateMacPlistXml(Bookmarks);
-                SetClipboardTextWithRetry(plistXml);
-                CustomMessageBox.Show("Bookmarks successfully exported to macOS plist format and copied to the clipboard!", "Success", MessageBoxButton.OK);
-            }
-            catch (Exception ex)
-            {
-                CustomMessageBox.Show($"An error occurred while exporting to macOS plist format: {ex.Message}", "Error", MessageBoxButton.OK);
-            }
-        }
-
-
 
         private void ExportToBrowser_Click(object sender, RoutedEventArgs e)
         {
@@ -631,8 +726,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
                     case "Microsoft Edge":
                         SaveBookmarksToEdge();
                         break;
-
-                  
 
                     default:
                         CustomMessageBox.Show("Export to this browser is not yet supported.", "Info", MessageBoxButton.OK);
@@ -678,6 +771,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             File.WriteAllText(chromeBookmarksPath, rootObject.ToString(Formatting.Indented));
             CustomMessageBox.Show("Bookmarks successfully exported to Chrome!", "Success", MessageBoxButton.OK);
         }
+
         private JObject CreateChromeFolderNode(string name, List<Bookmark> bookmarks)
         {
             var folderNode = new JObject
@@ -704,6 +798,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
         {
             return Guid.NewGuid().ToString();
         }
+
         private JObject ConvertToChromeFormat(Bookmark bookmark)
         {
             var obj = new JObject
@@ -733,10 +828,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             edgeManager.ExportBookmarks(edgeFilePath, Bookmarks);
         }
-
-      
-
-
 
         private JObject CreateEdgeFolderNode(string name, List<Bookmark> bookmarks)
         {
@@ -890,9 +981,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             return obj;
         }
 
-
-        
-
         private List<Bookmark> ParseChromeOrEdgeBookmarks(JToken token)
         {
             var result = new List<Bookmark>();
@@ -961,7 +1049,20 @@ namespace Google_Bookmarks_Manager_for_GPOs
         {
             try
             {
-                var exportList = new JArray(Bookmarks.Select(ConvertBookmarkToOriginalFormat));
+                var exportList = new JArray();
+
+                // Ensure the top-level name is the first item
+                exportList.Add(new JObject
+                {
+                    ["toplevel_name"] = TopLevelFolderName
+                });
+
+                // Add all bookmarks as separate items (not nested under "bookmarks")
+                foreach (var bookmark in Bookmarks)
+                {
+                    exportList.Add(ConvertBookmarkToOriginalFormat(bookmark));
+                }
+
                 var json = exportList.ToString(Formatting.Indented);
                 Clipboard.SetText(json);
                 CustomMessageBox.Show("Bookmarks exported to clipboard in the desired format!", "Confirmation", MessageBoxButton.OK);
@@ -998,13 +1099,13 @@ namespace Google_Bookmarks_Manager_for_GPOs
             };
         }
 
-        private JObject ConvertBookmarkToOriginalFormat(Bookmark bookmark)
+        public JObject ConvertBookmarkToOriginalFormat(Bookmark bookmark, bool isTopLevel = false)
         {
             var obj = new JObject();
 
-            if (bookmark.IsRootFolder)  // Root-level folder should use "toplevel_name"
+            if (isTopLevel && !string.IsNullOrEmpty(TopLevelFolderName))
             {
-                obj["toplevel_name"] = bookmark.Name;
+                obj["toplevel_name"] = TopLevelFolderName; // Use the UI-entered name
             }
             else
             {
@@ -1018,7 +1119,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             if (bookmark.Children != null && bookmark.Children.Any())
             {
-                obj["children"] = new JArray(bookmark.Children.Select(ConvertBookmarkToOriginalFormat));
+                obj["children"] = new JArray(bookmark.Children.Select(child => ConvertBookmarkToOriginalFormat(child)));
             }
 
             return obj;
@@ -1098,6 +1199,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private void CheckBox_Checked(object sender, RoutedEventArgs e)
         {
             SwitchTheme(true);
+            SaveThemePreference(true);
         }
 
         private void AddNestedFolder_Click(object sender, RoutedEventArgs e)
@@ -1142,7 +1244,15 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private void CheckBox_Unchecked(object sender, RoutedEventArgs e)
         {
             SwitchTheme(false);
+            SaveThemePreference(false);
         }
+        private void SaveThemePreference(bool isDarkMode)
+        {
+            Properties.Settings.Default.IsDarkMode = isDarkMode;
+            Properties.Settings.Default.UpgradeRequired = false; // Mark settings as upgraded
+            Properties.Settings.Default.Save(); // Persist setting
+        }
+
 
         private void SwitchTheme(bool isDark)
         {
@@ -1172,6 +1282,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 UpdateOriginalBookmarks();
             }
         }
+
         private bool IsPlistXml(string content)
         {
             return content.StartsWith("<?xml") || content.Contains("<plist>");
@@ -1182,30 +1293,65 @@ namespace Google_Bookmarks_Manager_for_GPOs
             return content.StartsWith("{") || content.StartsWith("[");
         }
 
+        private string ReplaceTopLevelName(string content)
+        {
+            Log.Information("Replacing 'toplevel_name' with 'name' in plist content.");
+            return content.Replace("<key>toplevel_name</key>", "<key>name</key>");
+        }
+
         private void ParseBookmarks(string content)
         {
             try
             {
                 content = content.Trim();
+                Log.Information("Bookmark Content Preview (first 300 chars): {Content}", content.Substring(0, Math.Min(300, content.Length)));
 
                 if (IsPlistXml(content))
                 {
-                    // Use Claunia's parsing for plist content
+                    Log.Information("Parsing plist as XML...");
                     var bookmarks = ParsePlistWithClaunia(content);
                     Bookmarks.Clear();
+
+                    // Extract Top-Level Name from plist correctly
+                    var plistRoot = ExtractPlistTopLevelName(content);
+                    if (!string.IsNullOrEmpty(plistRoot))
+                    {
+                        TopLevelFolderName = plistRoot;
+                        Log.Information("Plist Top-Level Folder Name: {TopLevelFolderName}", TopLevelFolderName);
+                    }
+
                     foreach (var bookmark in bookmarks)
                     {
                         Bookmarks.Add(bookmark);
+                        Log.Information("Parsed bookmark: {Name}", bookmark.Name);
                     }
                 }
                 else if (IsJson(content))
                 {
+                    content = ReplaceTopLevelName(content); // Ensure correct renaming of keys
                     var parsedJson = JArray.Parse(content);
                     Bookmarks.Clear();
+
+                    // Extract Top-Level Folder Name from JSON
+                    if (parsedJson.Count > 0 && parsedJson[0]["toplevel_name"] != null)
+                    {
+                        TopLevelFolderName = parsedJson[0]["toplevel_name"].ToString();
+                        parsedJson.RemoveAt(0); // Remove this object so only bookmarks remain
+                        Log.Information("JSON Top-Level Folder Name: {TopLevelFolderName}", TopLevelFolderName);
+                    }
+
                     foreach (var item in parsedJson)
                     {
-                        var bookmark = item["toplevel_name"] != null ? ParseTopLevelBookmark(item) : ParseBookmark(item);
-                        if (bookmark != null) Bookmarks.Add(bookmark);
+                        if (item["name"] != null)
+                        {
+                            var bookmark = ParseBookmark(item);
+                            MarkFolderStatus(bookmark);
+                            Bookmarks.Add(bookmark);
+                        }
+                        else
+                        {
+                            Log.Warning("Bookmark without a 'name' key found.");
+                        }
                     }
                 }
                 else
@@ -1214,10 +1360,55 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 }
 
                 OnPropertyChanged(nameof(Bookmarks));
+                OnPropertyChanged(nameof(TopLevelFolderName)); // Ensure UI updates
             }
             catch (Exception ex)
             {
+                Log.Error("Error parsing bookmarks: {Message}", ex.Message);
                 CustomMessageBox.Show("Error parsing bookmarks: " + ex.Message, "Error", MessageBoxButton.OK);
+            }
+        }
+
+        private string ExtractPlistTopLevelName(string plistContent)
+        {
+            try
+            {
+                byte[] plistBytes = Encoding.UTF8.GetBytes(plistContent);
+                var plistRoot = PropertyListParser.Parse(plistBytes);
+
+                if (plistRoot is NSDictionary rootDict && rootDict.ContainsKey("ManagedFavorites"))
+                {
+                    NSArray favoritesArray = (NSArray)rootDict["ManagedFavorites"];
+                    if (favoritesArray.Count > 0 && favoritesArray.ElementAt(0) is NSDictionary firstEntry)
+                    {
+                        if (firstEntry.ContainsKey("toplevel_name"))
+                        {
+                            return firstEntry["toplevel_name"].ToString();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error extracting Plist toplevel_name: {Message}", ex.Message);
+            }
+
+            return string.Empty; // Return empty string if not found
+        }
+
+        private void MarkFolderStatus(Bookmark bookmark)
+        {
+            if (bookmark.Children != null && bookmark.Children.Any())
+            {
+                bookmark.IsFolder = true;
+                foreach (var child in bookmark.Children)
+                {
+                    MarkFolderStatus(child);
+                }
+            }
+            else
+            {
+                bookmark.IsFolder = false;
             }
         }
 
@@ -1244,37 +1435,65 @@ namespace Google_Bookmarks_Manager_for_GPOs
             return topLevelFolder;
         }
 
-        private ObservableCollection<Bookmark> ParsePlistWithClaunia(string plistContent)
+        private Bookmark ParsePlistBookmark(NSDictionary dict)
+        {
+            var bookmark = new Bookmark
+            {
+                Name = dict.ContainsKey("name") ? dict["name"].ToString() : "Unnamed Folder",
+                Url = dict.ContainsKey("url") ? dict["url"].ToString() : null,
+                IsFolder = dict.ContainsKey("children") && dict["children"] is NSArray // Ensure IsFolder is correctly set
+            };
+
+            // Recursively process children
+            if (dict.ContainsKey("children") && dict["children"] is NSArray childrenArray)
+            {
+                bookmark.Children = new ObservableCollection<Bookmark>();
+                foreach (var child in childrenArray)
+                {
+                    if (child is NSDictionary childDict)
+                    {
+                        bookmark.Children.Add(ParsePlistBookmark(childDict));
+                    }
+                }
+            }
+
+            return bookmark;
+        }
+
+        public ObservableCollection<Bookmark> ParsePlistWithClaunia(string plistContent)
         {
             var bookmarks = new ObservableCollection<Bookmark>();
 
             try
             {
-                // Convert plist content to byte array
-                byte[] plistBytes = Encoding.UTF8.GetBytes(plistContent);
+                NSDictionary rootDict = (NSDictionary)PropertyListParser.Parse(Encoding.UTF8.GetBytes(plistContent));
 
-                // Parse plist from byte array
-                var plistRoot = PropertyListParser.Parse(plistBytes);
-
-                if (plistRoot is NSDictionary rootDict && rootDict.ContainsKey("ManagedFavorites"))
+                // Ensure ManagedFavorites key exists
+                if (rootDict.ContainsKey("ManagedFavorites"))
                 {
-                    NSArray favoritesArray = (NSArray)rootDict["ManagedFavorites"];
-                    foreach (var item in favoritesArray)
+                    NSArray managedFavorites = (NSArray)rootDict["ManagedFavorites"];
+
+                    // Extract the toplevel_name from rootDict
+                    if (rootDict.ContainsKey("toplevel_name"))
                     {
-                        if (item is NSDictionary dict)
+                        TopLevelFolderName = rootDict["toplevel_name"].ToString();
+                        Log.Information("Plist Top-Level Folder Name: {TopLevelFolderName}", TopLevelFolderName);
+                    }
+
+                    foreach (var item in managedFavorites)
+                    {
+                        var dict = item as NSDictionary;
+                        if (dict != null && dict.ContainsKey("name"))
                         {
-                            var bookmark = ConvertPlistDictToBookmarkClaunia(dict);
-                            if (bookmark != null)
-                            {
-                                bookmarks.Add(bookmark);
-                            }
+                            Bookmark bookmark = ParsePlistBookmark(dict);
+                            bookmarks.Add(bookmark);
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                Log.Error("Error parsing Plist: {Message}", ex.Message);
+                Log.Error("Error parsing plist: {Message}", ex.Message);
             }
 
             return bookmarks;
@@ -1307,7 +1526,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return bookmark;
         }
-
 
         private ObservableCollection<Bookmark> ParsePlistXml(string xmlContent)
         {
@@ -1348,9 +1566,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return bookmarks;
         }
-
-
-
 
         private Bookmark ConvertPlistDictToBookmark(NSDictionary dict)
         {
@@ -1498,8 +1713,17 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private void exportxml_Click(object sender, RoutedEventArgs e)
         {
-            ExportBookmarksToMacPlist();
-
+            try
+            {
+                MacExportManager macExportManager = new MacExportManager();
+                string plistXml = macExportManager.GenerateMacPlistXml(Bookmarks, TopLevelFolderName); // Pass the UI value
+                Clipboard.SetText(plistXml);
+                CustomMessageBox.Show("Bookmarks successfully exported to macOS plist format!", "Success", MessageBoxButton.OK);
+            }
+            catch (Exception ex)
+            {
+                CustomMessageBox.Show($"Error exporting to plist: {ex.Message}", "Error", MessageBoxButton.OK);
+            }
         }
     }
 }
