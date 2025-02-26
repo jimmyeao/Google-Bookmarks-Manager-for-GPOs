@@ -19,6 +19,7 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 using System.Xml.Linq;
 using Serilog;
 using Windows.UI.WebUI;
+using System.Reflection;
 
 namespace Google_Bookmarks_Manager_for_GPOs
 {
@@ -43,6 +44,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private string _searchQuery;
         private ObservableCollection<Bookmark> _originalBookmarks;
         private string _topLevelFolderName;
+
         public string TopLevelFolderName
         {
             get => _topLevelFolderName;
@@ -97,6 +99,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return obj;
         }
+
         private void SaveBookmarksToFile()
         {
             try
@@ -122,7 +125,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 Log.Error("Error saving bookmarks on exit: {Message}", ex.Message);
             }
         }
-
 
         private void LoadBookmarksFromFile()
         {
@@ -156,7 +158,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 Log.Error("Error loading bookmarks: {Message}", ex.Message);
             }
         }
-
 
         private void AppendBookmarkToHtml(Bookmark bookmark, StringBuilder html, int indentLevel)
         {
@@ -223,15 +224,35 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 Bookmarks = new ObservableCollection<Bookmark>();
             }
             _originalBookmarks = new ObservableCollection<Bookmark>(Bookmarks);  // Backup the original list
-
+            string version = GetAppVersion();
+            this.Title = $"Bookmark Mangager fo r Intune/GPO - Version {version}";
             DataContext = this;
             LoadBookmarksFromFile();
             this.Closing += MainWindow_Closing;
         }
+
+        private string GetAppVersion()
+        {
+            string version = Assembly.GetExecutingAssembly()
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                ?? Assembly.GetExecutingAssembly().GetName().Version?.ToString()
+                ?? "1.0.0.0";
+
+            // Remove any build metadata after '+'
+            int plusIndex = version.IndexOf('+');
+            if (plusIndex > 0)
+            {
+                version = version.Substring(0, plusIndex);
+            }
+
+            return version;
+        }
+
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             SaveBookmarksToFile();
         }
+
         private void TextBlock_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             if (sender is TextBlock textBlock && textBlock.DataContext is Bookmark bookmark)
@@ -673,8 +694,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             throw new Exception("Failed to set clipboard text after multiple attempts.");
         }
 
-     
-
         private void ExportToBrowser_Click(object sender, RoutedEventArgs e)
         {
             if (browserSelectionComboBox.SelectedItem == null)
@@ -1043,9 +1062,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
-
-
-
         private JObject ConvertToSimpleJsonObject(Bookmark bookmark)
         {
             var obj = new JObject
@@ -1097,7 +1113,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return obj;
         }
-
 
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
         {
@@ -1333,6 +1348,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 CustomMessageBox.Show("Error parsing bookmarks: " + ex.Message, "Error", MessageBoxButton.OK);
             }
         }
+
         private string ExtractPlistTopLevelName(string plistContent)
         {
             try
@@ -1359,7 +1375,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return string.Empty; // Return empty string if not found
         }
-
 
         private void MarkFolderStatus(Bookmark bookmark)
         {
@@ -1399,6 +1414,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return topLevelFolder;
         }
+
         private Bookmark ParsePlistBookmark(NSDictionary dict)
         {
             var bookmark = new Bookmark
@@ -1423,8 +1439,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return bookmark;
         }
-
-
 
         public ObservableCollection<Bookmark> ParsePlistWithClaunia(string plistContent)
         {
@@ -1691,6 +1705,5 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 CustomMessageBox.Show($"Error exporting to plist: {ex.Message}", "Error", MessageBoxButton.OK);
             }
         }
-
     }
 }
