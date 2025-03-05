@@ -55,7 +55,6 @@
                       AllowDrop="True"
                       DragOver="BookmarksTreeView_DragOver"
                       Drop="BookmarksTreeView_Drop"
-                      DragLeave="BookmarksTreeView_DragLeave"
                       PreviewMouseRightButtonDown="BookmarksTreeView_PreviewMouseRightButtonDown"
                       PreviewMouseLeftButtonDown="BookmarksTreeView_PreviewMouseLeftButtonDown"
                       PreviewMouseMove="BookmarksTreeView_PreviewMouseMove"

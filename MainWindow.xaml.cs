@@ -29,7 +29,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private DateTime _lastClickTime;
         private Stack<(Bookmark parent, Bookmark bookmark)> _undoStack = new Stack<(Bookmark, Bookmark)>();
         private TreeViewItem _draggedItemContainer;
-        private TreeViewItem _highlightedItem;
         private Bookmark _draggedBookmark;
         private string _topLevelBookmarkFolderName;
         private DragAdorner _dragAdorner;
@@ -1631,14 +1630,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             if (e.LeftButton == MouseButtonState.Pressed && _draggedBookmark != null && !_isDragging)
             {
                 _isDragging = true;
-
-                _adornerLayer = AdornerLayer.GetAdornerLayer(BookmarksTreeView);
-                if (_adornerLayer != null)
-                {
-                    _dragAdorner = new DragAdorner(BookmarksTreeView, _draggedBookmark.Name); // Or whatever visual you want
-                    _adornerLayer.Add(_dragAdorner);
-                }
-
                 DragDrop.DoDragDrop(BookmarksTreeView, _draggedBookmark, DragDropEffects.Move);
                 _isDragging = false;
             }
@@ -1646,64 +1637,21 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private void BookmarksTreeView_DragOver(object sender, DragEventArgs e)
         {
-            var position = e.GetPosition(BookmarksTreeView);
-            var hoveredItem = GetNearestContainer(e.OriginalSource as DependencyObject);
-
-            // Target Highlighting
-            if (_highlightedItem != null)
+            if (_dragAdorner != null)
             {
-                _highlightedItem.Background = Brushes.Transparent; // Reset previous highlight
-            }
-
-            if (hoveredItem != null)
-            {
-                hoveredItem.Background = Brushes.LightBlue; // Highlight current target
-                _highlightedItem = hoveredItem;
-
-                if (_dragAdorner != null)
-                {
-                    var hoveredBookmark = hoveredItem.DataContext as Bookmark;
-                    if (hoveredBookmark != null)
-                    {
-                        var relativePosition = e.GetPosition(hoveredItem);
-                        bool isFolder = hoveredBookmark.IsFolder;
-                        bool insertBetween = relativePosition.Y < hoveredItem.ActualHeight * 0.3 || relativePosition.Y > hoveredItem.ActualHeight * 0.7;
-                        bool addToFolder = !insertBetween && isFolder;
-
-                        if (addToFolder)
-                        {
-                            _dragAdorner.UpdatePosition(position.X, position.Y, false, 0, true, hoveredItem.TranslatePoint(new Point(0, 0), BookmarksTreeView).X,
-                                hoveredItem.TranslatePoint(new Point(0, 0), BookmarksTreeView).Y, hoveredItem.ActualWidth, hoveredItem.ActualHeight);
-                        }
-                        else
-                        {
-                            double dropY = relativePosition.Y > hoveredItem.ActualHeight / 2 ? hoveredItem.ActualHeight : 0;
-                            _dragAdorner.UpdatePosition(position.X, position.Y, true, dropY);
-                        }
-                    }
-                }
-            }
-            else
-            {
-                if (_dragAdorner != null)
-                {
-                    _dragAdorner.UpdatePosition(position.X, position.Y, false);
-                }
+                var position = e.GetPosition(BookmarksTreeView);
+                _dragAdorner.UpdatePosition(position.X, position.Y);
             }
             e.Handled = true;
         }
 
-        private void BookmarksTreeView_DragLeave(object sender, DragEventArgs e)
+        private void BookmarksTreeView_DragEnter(object sender, DragEventArgs e)
         {
-            if (_adornerLayer != null && _dragAdorner != null)
+            if (_adornerLayer == null)
             {
-                _adornerLayer.Remove(_dragAdorner);
-                _dragAdorner = null;
-            }
-            if (_highlightedItem != null)
-            {
-                _highlightedItem.Background = Brushes.Transparent;
-                _highlightedItem = null;
+                _adornerLayer = AdornerLayer.GetAdornerLayer(BookmarksTreeView);
+                _dragAdorner = new DragAdorner(BookmarksTreeView, _draggedBookmark.Name);
+                _adornerLayer.Add(_dragAdorner);
             }
         }
 
@@ -1711,11 +1659,16 @@ namespace Google_Bookmarks_Manager_for_GPOs
         {
             if (_draggedBookmark == null) return;
 
-            var targetItem = GetNearestContainer(e.OriginalSource as DependencyObject);
-            if (targetItem == null) return;
-
-            var targetBookmark = targetItem.DataContext as Bookmark;
+            var targetBookmark = (e.OriginalSource as FrameworkElement)?.DataContext as Bookmark;
             if (targetBookmark == null || targetBookmark == _draggedBookmark) return;
+
+            // Prevent moving root folders
+            if (_draggedBookmark.IsRootFolder)
+            {
+                CustomMessageBox.Show("Root folders cannot be moved.", "Operation Not Allowed", MessageBoxButton.OK);
+                _draggedBookmark = null;
+                return;
+            }
 
             var sourceParent = FindParentBookmark(Bookmarks, _draggedBookmark);
 
@@ -1729,48 +1682,29 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 Bookmarks.Remove(_draggedBookmark);
             }
 
-            // Determine drop behavior
-            var relativePosition = e.GetPosition(targetItem);
-            bool insertBetween = relativePosition.Y < targetItem.ActualHeight * 0.3 || relativePosition.Y > targetItem.ActualHeight * 0.7;
-            bool addToFolder = !insertBetween && targetBookmark.IsFolder;
-
-            if (addToFolder)
+            // Handle dropping into a folder or reordering at the same level
+            if (targetBookmark.IsFolder)
             {
                 targetBookmark.Children.Add(_draggedBookmark);
             }
             else
             {
                 var targetParent = FindParentBookmark(Bookmarks, targetBookmark);
-                int targetIndex = targetParent != null ? targetParent.Children.IndexOf(targetBookmark) : Bookmarks.IndexOf(targetBookmark);
-                bool insertAfter = relativePosition.Y > targetItem.ActualHeight / 2;
-
                 if (targetParent != null)
                 {
-                    targetParent.Children.Insert(insertAfter ? targetIndex + 1 : targetIndex, _draggedBookmark);
+                    int targetIndex = targetParent.Children.IndexOf(targetBookmark);
+                    targetParent.Children.Insert(targetIndex, _draggedBookmark);
                 }
                 else
                 {
-                    Bookmarks.Insert(insertAfter ? targetIndex + 1 : targetIndex, _draggedBookmark);
+                    int targetIndex = Bookmarks.IndexOf(targetBookmark);
+                    Bookmarks.Insert(targetIndex, _draggedBookmark);
                 }
             }
 
             _draggedBookmark = null;
             OnPropertyChanged(nameof(Bookmarks));
         }
-
-
-
-        private void BookmarksTreeView_DragEnter(object sender, DragEventArgs e)
-        {
-            if (_adornerLayer == null)
-            {
-                _adornerLayer = AdornerLayer.GetAdornerLayer(BookmarksTreeView);
-                _dragAdorner = new DragAdorner(BookmarksTreeView, _draggedBookmark.Name);
-                _adornerLayer.Add(_dragAdorner);
-            }
-        }
-
-      
 
         protected void OnPropertyChanged(string propertyName)
         {
