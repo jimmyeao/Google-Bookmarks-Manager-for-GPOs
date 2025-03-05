@@ -29,6 +29,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private DateTime _lastClickTime;
         private Stack<(Bookmark parent, Bookmark bookmark)> _undoStack = new Stack<(Bookmark, Bookmark)>();
         private TreeViewItem _draggedItemContainer;
+        private TreeViewItem _highlightedItem;
         private Bookmark _draggedBookmark;
         private string _topLevelBookmarkFolderName;
         private DragAdorner _dragAdorner;
@@ -1630,6 +1631,14 @@ namespace Google_Bookmarks_Manager_for_GPOs
             if (e.LeftButton == MouseButtonState.Pressed && _draggedBookmark != null && !_isDragging)
             {
                 _isDragging = true;
+
+                _adornerLayer = AdornerLayer.GetAdornerLayer(BookmarksTreeView);
+                if (_adornerLayer != null)
+                {
+                    _dragAdorner = new DragAdorner(BookmarksTreeView, _draggedBookmark.Name); // Or whatever visual you want
+                    _adornerLayer.Add(_dragAdorner);
+                }
+
                 DragDrop.DoDragDrop(BookmarksTreeView, _draggedBookmark, DragDropEffects.Move);
                 _isDragging = false;
             }
@@ -1640,9 +1649,18 @@ namespace Google_Bookmarks_Manager_for_GPOs
             var position = e.GetPosition(BookmarksTreeView);
             var hoveredItem = GetNearestContainer(e.OriginalSource as DependencyObject);
 
-            if (_dragAdorner != null)
+            // Target Highlighting
+            if (_highlightedItem != null)
             {
-                if (hoveredItem != null)
+                _highlightedItem.Background = Brushes.Transparent; // Reset previous highlight
+            }
+
+            if (hoveredItem != null)
+            {
+                hoveredItem.Background = Brushes.LightBlue; // Highlight current target
+                _highlightedItem = hoveredItem;
+
+                if (_dragAdorner != null)
                 {
                     var hoveredBookmark = hoveredItem.DataContext as Bookmark;
                     if (hoveredBookmark != null)
@@ -1664,7 +1682,10 @@ namespace Google_Bookmarks_Manager_for_GPOs
                         }
                     }
                 }
-                else
+            }
+            else
+            {
+                if (_dragAdorner != null)
                 {
                     _dragAdorner.UpdatePosition(position.X, position.Y, false);
                 }
@@ -1672,13 +1693,17 @@ namespace Google_Bookmarks_Manager_for_GPOs
             e.Handled = true;
         }
 
-
         private void BookmarksTreeView_DragLeave(object sender, DragEventArgs e)
         {
             if (_adornerLayer != null && _dragAdorner != null)
             {
                 _adornerLayer.Remove(_dragAdorner);
                 _dragAdorner = null;
+            }
+            if (_highlightedItem != null)
+            {
+                _highlightedItem.Background = Brushes.Transparent;
+                _highlightedItem = null;
             }
         }
 
