@@ -1421,10 +1421,10 @@ namespace Google_Bookmarks_Manager_for_GPOs
                     return bookmarks;
                 }
 
-                // Extract the toplevel_name from rootDict if available
-                if (rootDict.ContainsKey("toplevel_name"))
+                // Extract the toplevel_name from the first entry in managedItems if available
+                if (managedItems.Count > 0 && managedItems[0] is NSDictionary firstItem && firstItem.ContainsKey("toplevel_name"))
                 {
-                    TopLevelFolderName = rootDict["toplevel_name"].ToString();
+                    TopLevelFolderName = firstItem["toplevel_name"].ToString();
                     Log.Information("Plist Top-Level Folder Name: {TopLevelFolderName}", TopLevelFolderName);
                 }
 
