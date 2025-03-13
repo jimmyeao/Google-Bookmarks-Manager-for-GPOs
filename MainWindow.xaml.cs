@@ -653,38 +653,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             return false;
         }
 
-        private void ImportFromBrowser_Click(object sender, RoutedEventArgs e)
-        {
-            string selectedBrowser = (browserSelectionComboBox.SelectedItem as ComboBoxItem)?.Content.ToString();
-
-            try
-            {
-                switch (selectedBrowser)
-                {
-                    case "Google Chrome":
-                        string chromePath = $@"C:\Users\{Environment.UserName}\AppData\Local\Google\Chrome\User Data\Default\Bookmarks";
-                        chromeManager.ImportBookmarks(chromePath, Bookmarks);
-                        break;
-
-                    case "Microsoft Edge":
-                        string edgePath = $@"C:\Users\{Environment.UserName}\AppData\Local\Microsoft\Edge\User Data\Default\Bookmarks";
-                        edgeManager.ImportBookmarks(edgePath, Bookmarks);
-                        break;
-
-                    default:
-                        CustomMessageBox.Show("Please select a valid browser.", "Error", MessageBoxButton.OK);
-                        return;
-                }
-
-                UpdateOriginalBookmarks();
-                CustomMessageBox.Show($"{selectedBrowser} bookmarks imported successfully!", "Success", MessageBoxButton.OK);
-            }
-            catch (Exception ex)
-            {
-                CustomMessageBox.Show($"Error importing {selectedBrowser} bookmarks: {ex.Message}", "Error", MessageBoxButton.OK);
-            }
-        }
-
+     
         private void SetClipboardTextWithRetry(string text)
         {
             int retryCount = 5;
@@ -705,40 +674,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             throw new Exception("Failed to set clipboard text after multiple attempts.");
         }
 
-        private void ExportToBrowser_Click(object sender, RoutedEventArgs e)
-        {
-            if (browserSelectionComboBox.SelectedItem == null)
-            {
-                CustomMessageBox.Show("Please select a browser to export to.", "Error", MessageBoxButton.OK);
-                return;
-            }
-
-            string selectedBrowser = ((ComboBoxItem)browserSelectionComboBox.SelectedItem).Content.ToString();
-
-            try
-            {
-                switch (selectedBrowser)
-                {
-                    case "Google Chrome":
-                        SaveBookmarksToChrome();
-                        break;
-
-                    case "Microsoft Edge":
-                        SaveBookmarksToEdge();
-                        break;
-
-                    default:
-                        CustomMessageBox.Show("Export to this browser is not yet supported.", "Info", MessageBoxButton.OK);
-                        break;
-                }
-
-                CustomMessageBox.Show($"Bookmarks successfully exported to {selectedBrowser}.", "Success", MessageBoxButton.OK);
-            }
-            catch (Exception ex)
-            {
-                CustomMessageBox.Show($"An error occurred while exporting: {ex.Message}", "Error", MessageBoxButton.OK);
-            }
-        }
 
         private void SaveBookmarksToChrome()
         {
@@ -1469,9 +1404,9 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 NSDictionary rootDict = (NSDictionary)PropertyListParser.Parse(Encoding.UTF8.GetBytes(plistContent));
 
                 // Ensure ManagedFavorites key exists
-                if (rootDict.ContainsKey("ManagedFavorites"))
+                if (rootDict.ContainsKey("ManagedBookmarks"))
                 {
-                    NSArray managedFavorites = (NSArray)rootDict["ManagedFavorites"];
+                    NSArray managedFavorites = (NSArray)rootDict["ManagedBookmarks"];
 
                     // Extract the toplevel_name from rootDict
                     if (rootDict.ContainsKey("toplevel_name"))
@@ -1725,5 +1660,22 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 CustomMessageBox.Show($"Error exporting to plist: {ex.Message}", "Error", MessageBoxButton.OK);
             }
         }
+        private void exportchromexml_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                MacExportManager macExportManager = new MacExportManager();
+                string plistXml = macExportManager.GenerateMacChromePlistXml(Bookmarks, TopLevelFolderName); // Pass the UI value
+                Clipboard.SetText(plistXml);
+                CustomMessageBox.Show("Bookmarks successfully exported to macOS plist format!", "Success", MessageBoxButton.OK);
+            }
+            catch (Exception ex)
+            {
+                CustomMessageBox.Show($"Error exporting to plist: {ex.Message}", "Error", MessageBoxButton.OK);
+            }
+        }
     }
 }
+
+
+

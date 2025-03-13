@@ -48,7 +48,38 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 return xmlString.Insert(insertIndex, doctype);
             }
         }
+        public string GenerateMacChromePlistXml(ObservableCollection<Bookmark> bookmarks, string topLevelFolderName)
+        {
+            var plist = new XElement("plist", new XAttribute("version", "1.0"));
 
+            var managedFavoritesArray = new XElement("array",
+                new XElement("dict",  // Ensure top level_name is inside ManagedFavorites
+                    new XElement("key", "toplevel_name"),
+                    new XElement("string", topLevelFolderName ?? "Default Folder")
+                ),
+                bookmarks.Select(ConvertBookmarkToXml) // Convert the rest of the bookmarks
+            );
+
+            var rootDict = new XElement("dict",
+                new XElement("key", "FavoritesBarEnabled"),
+                new XElement("true"),
+                new XElement("key", "ManagedFavorites"),
+                managedFavoritesArray // Add the correctly structured array
+            );
+
+            plist.Add(rootDict);
+            var xml = new XDocument(new XDeclaration("1.0", "utf-8", null), plist);
+
+            // Convert the XDocument to string and insert DOCTYPE manually
+            using (var memoryStream = new MemoryStream())
+            {
+                xml.Save(memoryStream, SaveOptions.None);
+                string xmlString = Encoding.UTF8.GetString(memoryStream.ToArray());
+                string doctype = "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n";
+                int insertIndex = xmlString.IndexOf("<plist");
+                return xmlString.Insert(insertIndex, doctype);
+            }
+        }
 
 
         private XElement ConvertBookmarkToXml(Bookmark bookmark)

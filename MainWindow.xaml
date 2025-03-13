@@ -1,8 +1,9 @@
-﻿<Window x:Class="Google_Bookmarks_Manager_for_GPOs.MainWindow"
+﻿<Window
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:local="clr-namespace:Google_Bookmarks_Manager_for_GPOs"
+        xmlns:av="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="av" x:Class="Google_Bookmarks_Manager_for_GPOs.MainWindow"
         Title="Google Bookmarks for GPO" Height="500" Width="850"
         Icon="/book.png"
         PreviewKeyDown="Window_PreviewKeyDown"
@@ -60,16 +61,6 @@
                       PreviewMouseMove="BookmarksTreeView_PreviewMouseMove"
                       KeyDown="TreeView_KeyDown">
 
-                <TreeView.ItemTemplate>
-                    <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding Name}" Margin="5,0,0,0"
-                                       Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
-                                       Style="{DynamicResource MaterialDesignBody1TextBlock}" />
-                        </StackPanel>
-                    </HierarchicalDataTemplate>
-                </TreeView.ItemTemplate>
-
                 <TreeView.Resources>
                     <ContextMenu x:Key="TreeViewContextMenu" Style="{DynamicResource MaterialDesignContextMenu}">
                         <MenuItem Header="Add Top-Level Folder" Click="AddTopLevelFolder_Click" />
@@ -81,8 +72,18 @@
                     </ContextMenu>
                 </TreeView.Resources>
 
+                <TreeView.ItemTemplate>
+                    <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Name}" Margin="5,0,0,0"
+                                       Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
+                                       Style="{DynamicResource MaterialDesignBody1TextBlock}" />
+                        </StackPanel>
+                    </HierarchicalDataTemplate>
+                </TreeView.ItemTemplate>
+
                 <TreeView.ItemContainerStyle>
-                    <Style TargetType="TreeViewItem">
+                    <Style TargetType="{x:Type TreeViewItem}">
                         <Setter Property="ContextMenu" Value="{StaticResource TreeViewContextMenu}" />
                     </Style>
                 </TreeView.ItemContainerStyle>
@@ -126,31 +127,22 @@
 
         <!-- Action Buttons -->
         <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10">
-            <Button Content="Export to Browser" Click="ExportToBrowser_Click" Width="150" Margin="5" 
-                    Style="{DynamicResource MaterialDesignRaisedButton}" />
             <Button Content="Import Clipboard" Click="importBookmarksButton_Click" Width="150" Margin="5" 
                     Style="{DynamicResource MaterialDesignRaisedButton}" />
             <Button Content="Clear Form" Click="clearFormButton_Click" Width="100" Margin="5" 
                     Style="{DynamicResource MaterialDesignRaisedButton}" />
-            <Button Content="Export JSON" Click="exportBookmarksButton_Click_1" Width="155" Margin="5" 
+            <Button Content="Export JSON" Click="exportBookmarksButton_Click_1" Width="124" Margin="5" 
                     Style="{DynamicResource MaterialDesignRaisedButton}" />
-            <Button Content="Export Plist" Click="exportxml_Click" Width="120" Margin="5" 
+            <Button Content="Export Plist (Edge)" Click="exportxml_Click" Width="155" Margin="5" 
                     Style="{DynamicResource MaterialDesignRaisedButton}" />
+            <Button Content="Export Plist (Chrome)" Click="exportchromexml_Click" Width="171" 
+                Style="{DynamicResource MaterialDesignRaisedButton}" />
             <CheckBox x:Name="darkModeCheckBox" Content="Dark Mode" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" Margin="5" 
                       Style="{DynamicResource MaterialDesignCheckBox}" />
         </StackPanel>
 
         <!-- Browser Selection ComboBox (Restored) -->
-        <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10">
-            <ComboBox x:Name="browserSelectionComboBox" Width="200" Margin="5"
-                      materialDesign:HintAssist.Hint="Select Browser" 
-                      Style="{DynamicResource MaterialDesignComboBox}">
-                <ComboBoxItem Content="Google Chrome" />
-                <ComboBoxItem Content="Microsoft Edge" />
-            </ComboBox>
-            <Button Content="Import from Browser" Click="ImportFromBrowser_Click" Width="200" Margin="5" 
-                    Style="{DynamicResource MaterialDesignRaisedButton}" />
-        </StackPanel>
+        <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10"/>
 
     </Grid>
 </Window>
