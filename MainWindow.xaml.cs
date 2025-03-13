@@ -236,7 +236,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
             _originalBookmarks = new ObservableCollection<Bookmark>(Bookmarks);  // Backup the original list
             string version = GetAppVersion();
-            this.Title = $"Bookmark Mangager fo r Intune/GPO - Version {version}";
+            this.Title = $"Bookmark Mangager for Intune/GPO - Version {version}";
             DataContext = this;
             LoadBookmarksFromFile();
             this.Closing += MainWindow_Closing;
