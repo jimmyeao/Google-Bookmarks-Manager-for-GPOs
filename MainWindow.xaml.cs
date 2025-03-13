@@ -1403,26 +1403,37 @@ namespace Google_Bookmarks_Manager_for_GPOs
             {
                 NSDictionary rootDict = (NSDictionary)PropertyListParser.Parse(Encoding.UTF8.GetBytes(plistContent));
 
-                // Ensure ManagedFavorites key exists
+                // Ensure either ManagedBookmarks (Chrome) or ManagedFavorites (Edge) key exists
+                NSArray managedItems = null;
                 if (rootDict.ContainsKey("ManagedBookmarks"))
                 {
-                    NSArray managedFavorites = (NSArray)rootDict["ManagedBookmarks"];
+                    managedItems = (NSArray)rootDict["ManagedBookmarks"];
+                    Log.Information("Parsing Chrome ManagedBookmarks");
+                }
+                else if (rootDict.ContainsKey("ManagedFavorites"))
+                {
+                    managedItems = (NSArray)rootDict["ManagedFavorites"];
+                    Log.Information("Parsing Edge ManagedFavorites");
+                }
+                else
+                {
+                    Log.Warning("No recognized bookmark key found in plist");
+                    return bookmarks;
+                }
 
-                    // Extract the toplevel_name from rootDict
-                    if (rootDict.ContainsKey("toplevel_name"))
-                    {
-                        TopLevelFolderName = rootDict["toplevel_name"].ToString();
-                        Log.Information("Plist Top-Level Folder Name: {TopLevelFolderName}", TopLevelFolderName);
-                    }
+                // Extract the toplevel_name from rootDict if available
+                if (rootDict.ContainsKey("toplevel_name"))
+                {
+                    TopLevelFolderName = rootDict["toplevel_name"].ToString();
+                    Log.Information("Plist Top-Level Folder Name: {TopLevelFolderName}", TopLevelFolderName);
+                }
 
-                    foreach (var item in managedFavorites)
+                foreach (var item in managedItems)
+                {
+                    if (item is NSDictionary dict && dict.ContainsKey("name"))
                     {
-                        var dict = item as NSDictionary;
-                        if (dict != null && dict.ContainsKey("name"))
-                        {
-                            Bookmark bookmark = ParsePlistBookmark(dict);
-                            bookmarks.Add(bookmark);
-                        }
+                        Bookmark bookmark = ParsePlistBookmark(dict);
+                        bookmarks.Add(bookmark);
                     }
                 }
             }
@@ -1433,6 +1444,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             return bookmarks;
         }
+
 
         private Bookmark ConvertPlistDictToBookmarkClaunia(NSDictionary dict)
         {
