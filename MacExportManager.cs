@@ -31,7 +31,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             var rootDict = new XElement("dict",
                 new XElement("key", "FavoritesBarEnabled"),
                 new XElement("true"),
-                new XElement("key", "ManagedBookmarks"),
+                new XElement("key", "ManagedFavorites"),
                 managedFavoritesArray // Add the correctly structured array
             );
 
@@ -63,7 +63,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             var rootDict = new XElement("dict",
                 new XElement("key", "FavoritesBarEnabled"),
                 new XElement("true"),
-                new XElement("key", "ManagedFavorites"),
+                new XElement("key", "ManagedBookmarks"),
                 managedFavoritesArray // Add the correctly structured array
             );
 
