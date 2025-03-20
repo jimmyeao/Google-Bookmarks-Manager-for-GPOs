@@ -7,6 +7,8 @@ namespace Google_Bookmarks_Manager_for_GPOs  // Ensure this matches your project
 {
     public class FolderIconConverter : IValueConverter
     {
+        #region Methods
+
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             return (bool)value ? "📁" : "🔖"; // Folder or Bookmark Icon
@@ -16,5 +18,7 @@ namespace Google_Bookmarks_Manager_for_GPOs  // Ensure this matches your project
         {
             throw new NotImplementedException();
         }
+
+        #endregion Methods
     }
 }

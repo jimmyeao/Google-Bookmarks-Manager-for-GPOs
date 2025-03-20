@@ -4,7 +4,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
 {
     public partial class ImportWindow : Window
     {
-        #region Public Constructors
+
+        #region Constructors
 
         public ImportWindow()
         {
@@ -20,15 +21,15 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
-        #endregion Public Constructors
+        #endregion Constructors
 
-        #region Public Properties
+        #region Properties
 
         public string Json { get; set; }
 
-        #endregion Public Properties
+        #endregion Properties
 
-        #region Private Methods
+        #region Methods
 
         private void cancelButton_Click(object sender, RoutedEventArgs e)
         {
@@ -44,6 +45,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             Close();
         }
 
-        #endregion Private Methods
+        #endregion Methods
+
     }
 }

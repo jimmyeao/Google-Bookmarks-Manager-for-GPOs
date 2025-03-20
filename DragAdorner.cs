@@ -7,9 +7,15 @@ namespace Google_Bookmarks_Manager_for_GPOs
 {
     public class DragAdorner : Adorner
     {
+        #region Fields
+
         private readonly VisualBrush _visualBrush;
         private double _leftOffset;
         private double _topOffset;
+
+        #endregion Fields
+
+        #region Constructors
 
         public DragAdorner(UIElement adornedElement, object dragContent) : base(adornedElement)
         {
@@ -23,6 +29,10 @@ namespace Google_Bookmarks_Manager_for_GPOs
             _visualBrush = new VisualBrush(contentPresenter);
         }
 
+        #endregion Constructors
+
+        #region Methods
+
         public void UpdatePosition(double left, double top)
         {
             _leftOffset = left;
@@ -35,5 +45,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             var rect = new Rect(new Point(_leftOffset, _topOffset), AdornedElement.RenderSize);
             drawingContext.DrawRectangle(_visualBrush, null, rect);
         }
+
+        #endregion Methods
     }
 }

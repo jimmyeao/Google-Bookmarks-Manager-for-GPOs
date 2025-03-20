@@ -4,7 +4,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
 {
     public partial class CustomMessageBox : Window
     {
-        #region Public Constructors
+
+        #region Constructors
 
         public CustomMessageBox(string message, string caption, MessageBoxButton buttons)
         {
@@ -19,21 +20,15 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
-        #endregion Public Constructors
+        #endregion Constructors
 
-        #region Public Properties
+        #region Properties
 
         public MessageBoxResult Result { get; private set; }
 
-        #endregion Public Properties
+        #endregion Properties
 
-        #region Private Methods
-
-        private void CancelButton_Click(object sender, RoutedEventArgs e)
-        {
-            Result = MessageBoxResult.Cancel;
-            Close();
-        }
+        #region Methods
 
         public static MessageBoxResult Show(string message, string caption, MessageBoxButton buttons)
         {
@@ -54,12 +49,18 @@ namespace Google_Bookmarks_Manager_for_GPOs
             return messageBox.Result; // Return the result (OK or Cancel)
         }
 
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
+        {
+            Result = MessageBoxResult.Cancel;
+            Close();
+        }
         private void OKButton_Click(object sender, RoutedEventArgs e)
         {
             Result = MessageBoxResult.OK;
             Close();
         }
 
-        #endregion Private Methods
+        #endregion Methods
+
     }
 }
