@@ -12,11 +12,9 @@
     <FileVersion>$(Version)</FileVersion>
     <AssemblyInformationalVersion>$(Version)</AssemblyInformationalVersion>
     <ApplicationIcon>book.ico</ApplicationIcon>
+    <PackageIcon>book.png</PackageIcon>
+    <Title>Bookmark Manager</Title>
   </PropertyGroup>
-
-  <ItemGroup>
-    <None Remove="book.png" />
-  </ItemGroup>
 
   <ItemGroup>
     <Content Include="book.ico" />
@@ -49,6 +47,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="book.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
     <None Update="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
