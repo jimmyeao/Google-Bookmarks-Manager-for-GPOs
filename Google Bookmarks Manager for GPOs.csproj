@@ -6,7 +6,7 @@
     <RootNamespace>Google_Bookmarks_Manager_for_GPOs</RootNamespace>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
-    <Version>1.1.0.12</Version>
+    <Version>1.2.0.12</Version>
     <ApplicationVersion>$(Version)</ApplicationVersion>
     <AssemblyVersion>$(Version)</AssemblyVersion>
     <FileVersion>$(Version)</FileVersion>

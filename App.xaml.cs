@@ -32,6 +32,22 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 .CreateLogger();
 
             Log.Information("Application started.");
+
+            // Ensure user settings are upgraded once after application updates
+            try
+            {
+                if (Google_Bookmarks_Manager_for_GPOs.Properties.Settings.Default.UpgradeRequired)
+                {
+                    Google_Bookmarks_Manager_for_GPOs.Properties.Settings.Default.Upgrade();
+                    Google_Bookmarks_Manager_for_GPOs.Properties.Settings.Default.UpgradeRequired = false;
+                    Google_Bookmarks_Manager_for_GPOs.Properties.Settings.Default.Save();
+                    Log.Information("User settings upgraded on startup.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Failed to upgrade settings: {Message}", ex.Message);
+            }
         }
 
         protected override void OnExit(ExitEventArgs e)
