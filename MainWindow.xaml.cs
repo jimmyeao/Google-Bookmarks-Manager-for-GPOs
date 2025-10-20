@@ -321,6 +321,40 @@ namespace Google_Bookmarks_Manager_for_GPOs
                     }
                 });
 
+                UpdateOriginalBookmarks();
+                OnPropertyChanged(nameof(Bookmarks));
+                AutoSaveCurrentProfile();
+            }
+            e.Handled = true;
+        }
+
+        // Inline + button: adds a bookmark under the clicked folder
+        private void AddBookmarkInline_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.DataContext is Bookmark parentFolder && parentFolder.IsFolder)
+            {
+                var newBookmark = new Bookmark { Name = "New Bookmark", Url = "https://", IsFolder = false };
+
+                parentFolder.Children.Add(newBookmark);
+
+                // Refresh UI, expand parent and select new bookmark
+                Dispatcher.Invoke(() =>
+                {
+                    var treeViewItem = GetTreeViewItemForBookmark(parentFolder);
+                    if (treeViewItem != null)
+                    {
+                        treeViewItem.IsExpanded = true;
+                        treeViewItem.UpdateLayout();
+                    }
+
+                    var newBookmarkItem = GetTreeViewItemForBookmark(newBookmark);
+                    if (newBookmarkItem != null)
+                    {
+                        newBookmarkItem.IsSelected = true;
+                        newBookmarkItem.BringIntoView();
+                    }
+                });
+
                 AutoSaveCurrentProfile();
             }
         }
@@ -679,6 +713,10 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private void clearFormButton_Click(object sender, RoutedEventArgs e)
         {
             // Clear the TreeView by resetting the Bookmarks collection
+            //ask the user using our custom diallog, are we sure?
+
+
+
             Bookmarks.Clear();
             // clear the textboxes
             TopLevelFolderNameTextBox.Text = string.Empty;
@@ -687,21 +725,21 @@ namespace Google_Bookmarks_Manager_for_GPOs
             bookmarkUrlTextBox.Text = string.Empty;
         }
 
-        private string ConvertBookmarksToChromeJson()
-        {
-            var rootObject = new JObject
-            {
-                ["roots"] = new JObject
-                {
-                    ["bookmark_bar"] = new JObject
-                    {
-                        ["children"] = new JArray(Bookmarks.Select(ConvertBookmarkToChromeFormat))
-                    }
-                }
-            };
+        //private string ConvertBookmarksToChromeJson()
+        //{
+        //    var rootObject = new JObject
+        //    {
+        //        ["roots"] = new JObject
+        //        {
+        //            ["bookmark_bar"] = new JObject
+        //            {
+        //                ["children"] = new JArray(Bookmarks.Select(ConvertBookmarkToChromeFormat))
+        //            }
+        //        }
+        //    };
 
-            return rootObject.ToString(Formatting.Indented);
-        }
+        //    return rootObject.ToString(Formatting.Indented);
+        //}
 
         private JObject ConvertBookmarkToChromeFormat(Bookmark bookmark)
         {
@@ -973,6 +1011,68 @@ namespace Google_Bookmarks_Manager_for_GPOs
                     DeleteBookmark(selectedBookmark);
                 }
             }
+        }
+
+        // Inline - button: deletes the clicked item (bookmark or folder)
+        private void DeleteBookmarkInline_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.DataContext is Bookmark selected)
+            {
+                bool filtering = !string.IsNullOrWhiteSpace(SearchQuery);
+                if (filtering)
+                {
+                    // Remove from original tree and rebuild filtered view
+                    var original = FindEquivalentBookmark(_originalBookmarks, selected) ?? selected;
+                    var parent = FindParentBookmark(_originalBookmarks, original);
+                    if (parent != null)
+                    {
+                        parent.Children.Remove(original);
+                    }
+                    else
+                    {
+                        Bookmarks.Remove(original);
+                    }
+                    FilterBookmarks();
+                }
+                else
+                {
+                    DeleteBookmark(selected);
+                    UpdateOriginalBookmarks();
+                    OnPropertyChanged(nameof(Bookmarks));
+                }
+                Log.Information("Inline delete '{Name}'", selected?.Name);
+            }
+            e.Handled = true;
+        }
+
+        // Find an equivalent bookmark in the given roots by comparing basic fields
+        private Bookmark FindEquivalentBookmark(IEnumerable<Bookmark> roots, Bookmark candidate)
+        {
+            foreach (var root in roots)
+            {
+                var found = FindEquivalentBookmarkRecursive(root, candidate);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
+        private Bookmark FindEquivalentBookmarkRecursive(Bookmark current, Bookmark candidate)
+        {
+            if (current == candidate) return current;
+            // Basic equivalence check: name + url + folder flag
+            if (string.Equals(current.Name, candidate.Name, StringComparison.Ordinal) &&
+                string.Equals(current.Url ?? string.Empty, candidate.Url ?? string.Empty, StringComparison.Ordinal) &&
+                current.IsFolder == candidate.IsFolder)
+            {
+                return current;
+            }
+
+            foreach (var child in current.Children)
+            {
+                var found = FindEquivalentBookmarkRecursive(child, candidate);
+                if (found != null) return found;
+            }
+            return null;
         }
 
         private void ExpandAndSelectNewItem(Bookmark newItem)

@@ -7,6 +7,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Xml.Serialization;
+using System.Text.RegularExpressions;
+using System.Security;
 
 namespace Google_Bookmarks_Manager_for_GPOs.Services
 {
@@ -33,8 +35,10 @@ namespace Google_Bookmarks_Manager_for_GPOs.Services
             {
                 if (!string.IsNullOrEmpty(val))
                 {
+                    // Ensure XML special characters are escaped
+                    var safe = SecurityElement.Escape(val);
                     writer.WriteLine($"{pad}<key>{key}</key>");
-                    writer.WriteLine($"{pad}<string>{val}</string>");
+                    writer.WriteLine($"{pad}<string>{safe}</string>");
                 }
             }
 
@@ -62,7 +66,17 @@ namespace Google_Bookmarks_Manager_for_GPOs.Services
                 return [];
 
             var xml = File.ReadAllText(filePath);
-            var doc = XDocument.Parse($"<root>{xml}</root>");
+            XDocument doc;
+            try
+            {
+                doc = XDocument.Parse($"<root>{xml}</root>");
+            }
+            catch
+            {
+                // Attempt to sanitize invalid XML (common: unescaped & in URLs)
+                var sanitized = SanitizeXmlFragment(xml);
+                doc = XDocument.Parse($"<root>{sanitized}</root>");
+            }
             var items = new List<BookmarkItem>();
 
             // Find the first top-level array which contains the bookmark dictionaries
@@ -77,6 +91,22 @@ namespace Google_Bookmarks_Manager_for_GPOs.Services
             }
 
             return items;
+        }
+
+        // Replaces bare '&' inside <string>...</string> with '&amp;' while preserving existing entities
+        private static string SanitizeXmlFragment(string xml)
+        {
+            return Regex.Replace(
+                xml,
+                @"(<string>)(.*?)(</string>)",
+                m =>
+                {
+                    var content = m.Groups[2].Value;
+                    // Replace any & that is not the start of a valid entity
+                    content = Regex.Replace(content, @"&(?![#a-zA-Z0-9]+;)", "&amp;");
+                    return m.Groups[1].Value + content + m.Groups[3].Value;
+                },
+                RegexOptions.Singleline);
         }
 
         private static BookmarkItem ParseDict(XElement dict)
