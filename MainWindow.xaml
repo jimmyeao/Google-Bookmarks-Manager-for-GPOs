@@ -4,7 +4,7 @@
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:local="clr-namespace:Google_Bookmarks_Manager_for_GPOs"
         xmlns:av="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="av" x:Class="Google_Bookmarks_Manager_for_GPOs.MainWindow"
-        Title="Google Bookmarks for GPO" Height="500" Width="850"
+        Title="Google Bookmarks for GPO" Height="664" Width="850"
         Icon="/book.png"
         PreviewKeyDown="Window_PreviewKeyDown"
         TextElement.Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
@@ -20,35 +20,68 @@
         <local:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
     </Window.Resources>
 
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="2*" />
-            <ColumnDefinition Width="3*" />
-        </Grid.ColumnDefinitions>
-
+    <Grid Margin="0,0,0,7">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Top-Level Folder Name Panel -->
-        <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="10">
-            <TextBlock Text="Top-Level Folder Name:" 
-                       FontWeight="Bold"
-                       VerticalAlignment="Center"
-                       Margin="0,0,10,0"
-                       Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" />
-            <TextBox x:Name="TopLevelFolderNameTextBox"
-                     Text="{Binding TopLevelFolderName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                     Style="{DynamicResource MaterialDesignTextBox}"
-                     Width="300"
-                     Margin="0,5,0,10"/>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*" />
+            <ColumnDefinition Width="3*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Menu Bar -->
+        <Menu Grid.Row="0" Grid.ColumnSpan="2" Background="{DynamicResource MaterialDesign.Brush.Background}">
+            <MenuItem Header="File" Style="{DynamicResource MaterialDesignMenuItem}">
+                <MenuItem Header="Change Save Location..." Click="ChangeSaveLocation_Click" Icon="{materialDesign:PackIcon Kind=FolderMove}" />
+                <Separator />
+                <MenuItem Header="Open Profile From..." Click="OpenProfileFrom_Click" Icon="{materialDesign:PackIcon Kind=FolderOpen}" />
+            </MenuItem>
+        </Menu>
+
+        <!-- Profile and Top-Level Folder Name Panel -->
+        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Vertical" Margin="10">
+            <!-- Profile Selection Row -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <TextBlock Text="Profile:"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"
+                           Margin="0,0,10,0"
+                           Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" />
+                <ComboBox x:Name="ProfileComboBox"
+                          Width="200"
+                          Margin="0,0,10,0"
+                          Style="{DynamicResource MaterialDesignComboBox}"
+                          SelectionChanged="ProfileComboBox_SelectionChanged"/>
+                <Button Content="New" Click="NewProfile_Click" Width="70" Margin="5,0"
+                        Style="{DynamicResource MaterialDesignRaisedButton}" />
+                <Button Content="Rename" Click="RenameProfile_Click" Width="93" Margin="5,0"
+                        Style="{DynamicResource MaterialDesignRaisedButton}" />
+                <Button Content="Delete" Click="DeleteProfile_Click" Width="89" Margin="5,0"
+                        Style="{DynamicResource MaterialDesignRaisedButton}" />
+            </StackPanel>
+
+            <!-- Top-Level Folder Name Row -->
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Top-Level Folder Name:"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"
+                           Margin="0,0,10,0"
+                           Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" />
+                <TextBox x:Name="TopLevelFolderNameTextBox"
+                         Text="{Binding TopLevelFolderName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{DynamicResource MaterialDesignTextBox}"
+                         Width="300"
+                         Margin="0,5,0,10"/>
+            </StackPanel>
         </StackPanel>
 
         <!-- TreeView Panel -->
-        <Border Grid.Row="1" Grid.Column="0" BorderThickness="1" Margin="5" 
+        <Border Grid.Row="2" Grid.Column="0" BorderThickness="1" Margin="5" 
                 Style="{DynamicResource MaterialDesignToolBarMainPanelBorderStyle}">
             <TreeView x:Name="BookmarksTreeView" ItemsSource="{Binding Bookmarks}"
                       Style="{DynamicResource MaterialDesignTreeView}"
@@ -59,7 +92,7 @@
                       PreviewMouseRightButtonDown="BookmarksTreeView_PreviewMouseRightButtonDown"
                       PreviewMouseLeftButtonDown="BookmarksTreeView_PreviewMouseLeftButtonDown"
                       PreviewMouseMove="BookmarksTreeView_PreviewMouseMove"
-                      KeyDown="TreeView_KeyDown">
+                      KeyDown="TreeView_KeyDown" Margin="0,0,0,-180">
 
                 <TreeView.Resources>
                     <ContextMenu x:Key="TreeViewContextMenu" Style="{DynamicResource MaterialDesignContextMenu}">
@@ -74,24 +107,54 @@
 
                 <TreeView.ItemTemplate>
                     <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding Name}" Margin="5,0,0,0"
-                                       Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
-                                       Style="{DynamicResource MaterialDesignBody1TextBlock}" />
-                        </StackPanel>
+                        <Border x:Name="HeaderBorder" Background="Transparent" CornerRadius="4" Padding="2" HorizontalAlignment="Stretch">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="HeaderText"
+                                           Text="{Binding Name}"
+                                           Margin="5,0,0,0"
+                                           Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
+                                           Style="{DynamicResource MaterialDesignBody1TextBlock}" />
+                            </StackPanel>
+                        </Border>
+                        <HierarchicalDataTemplate.Triggers>
+                            <!-- Selected state: strong contrast on dark theme -->
+                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TreeViewItem}}" Value="True">
+                                <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource PrimaryHueMidBrush}"/>
+                                <Setter TargetName="HeaderText" Property="Foreground" Value="{DynamicResource PrimaryHueMidForegroundBrush}"/>
+                            </DataTrigger>
+                            <!-- Hover state: subtle highlight -->
+                            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=TreeViewItem}}" Value="True">
+                                <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource PrimaryHueLightBrush}"/>
+                                <Setter TargetName="HeaderText" Property="Foreground" Value="{DynamicResource PrimaryHueLightForegroundBrush}"/>
+                            </DataTrigger>
+                        </HierarchicalDataTemplate.Triggers>
                     </HierarchicalDataTemplate>
                 </TreeView.ItemTemplate>
 
                 <TreeView.ItemContainerStyle>
                     <Style TargetType="{x:Type TreeViewItem}">
                         <Setter Property="ContextMenu" Value="{StaticResource TreeViewContextMenu}" />
+                        <Setter Property="Padding" Value="2"/>
+                        <Setter Property="Margin" Value="0,1,0,1"/>
+                        <Setter Property="Focusable" Value="True"/>
+                        <!-- Ensure header stretches to full row width so custom background covers it fully -->
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <!-- Remove default selection highlight so our template colors show -->
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Style.Resources>
+                            <SolidColorBrush x:Key="TreeViewItem.Selected.Background" Color="Transparent"/>
+                            <SolidColorBrush x:Key="TreeViewItem.Selected.Border" Color="Transparent"/>
+                            <!-- Also remove inactive selection highlight (appears on right-click without focus) -->
+                            <SolidColorBrush x:Key="TreeViewItem.SelectedInactive.Background" Color="Transparent"/>
+                            <SolidColorBrush x:Key="TreeViewItem.SelectedInactive.Border" Color="Transparent"/>
+                        </Style.Resources>
                     </Style>
                 </TreeView.ItemContainerStyle>
             </TreeView>
         </Border>
 
         <!-- Details Panel -->
-        <StackPanel Grid.Row="1" Grid.Column="1" Margin="10">
+        <StackPanel Grid.Row="2" Grid.Column="1" Margin="10">
             <Label Content="Bookmark Details" FontWeight="Bold" FontSize="16" Margin="0,20,0,10" 
                    Style="{DynamicResource MaterialDesignLabel}" />
 
@@ -126,23 +189,48 @@
         </StackPanel>
 
         <!-- Action Buttons -->
-        <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10">
-            <Button Content="Import Clipboard" Click="importBookmarksButton_Click" Width="150" Margin="5" 
-                    Style="{DynamicResource MaterialDesignRaisedButton}" />
-            <Button Content="Clear Form" Click="clearFormButton_Click" Width="100" Margin="5" 
-                    Style="{DynamicResource MaterialDesignRaisedButton}" />
-            <Button Content="Export JSON" Click="exportBookmarksButton_Click_1" Width="124" Margin="5" 
-                    Style="{DynamicResource MaterialDesignRaisedButton}" />
-            <Button Content="Export Plist (Edge)" Click="exportxml_Click" Width="155" Margin="5" 
-                    Style="{DynamicResource MaterialDesignRaisedButton}" />
-            <Button Content="Export Plist (Chrome)" Click="exportchromexml_Click" Width="171" 
-                Style="{DynamicResource MaterialDesignRaisedButton}" />
-            <CheckBox x:Name="darkModeCheckBox" Content="Dark Mode" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" Margin="5" 
-                      Style="{DynamicResource MaterialDesignCheckBox}" />
+        <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Vertical" HorizontalAlignment="Left" Margin="27,10,0,10">
+            <!-- Import and Clear Row -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
+                <Button Content="Import Bookmarks" Click="importFromClipboard_Click" Width="150" Margin="5"
+                        Style="{DynamicResource MaterialDesignRaisedButton}" />
+                <Button Content="Clear All" Click="clearFormButton_Click" Width="100" Margin="5"
+                        Style="{DynamicResource MaterialDesignRaisedButton}" />
+                <CheckBox x:Name="darkModeCheckBox" Content="Dark Mode" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" Margin="15,0,0,0"
+                          VerticalAlignment="Center" Style="{DynamicResource MaterialDesignCheckBox}" />
+            </StackPanel>
+
+            <!-- Export Label -->
+            <TextBlock Text="Export to Clipboard for Intune:" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,5,0,5"
+                       Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"/>
+
+            <!-- Export Buttons Row 1 - Windows -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,5">
+                <TextBlock Text="Windows:" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"
+                           Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"/>
+                <Button Content="Edge (JSON)" Click="ExportEdgeWindows_Click" Width="130" Margin="5,0"
+                        Style="{DynamicResource MaterialDesignRaisedButton}"
+                        ToolTip="Export as JSON for Microsoft Edge on Windows (ManagedFavorites)" />
+                <Button Content="Chrome (JSON)" Click="ExportChromeWindows_Click" Width="130" Margin="5,0"
+                        Style="{DynamicResource MaterialDesignRaisedButton}"
+                        ToolTip="Export as JSON for Google Chrome on Windows (ManagedBookmarks)" />
+            </StackPanel>
+
+            <!-- Export Buttons Row 2 - macOS -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,5">
+                <TextBlock Text="macOS:" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"
+                           Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"/>
+                <Button Content="Edge (PLIST)" Click="ExportEdgeMac_Click" Width="130" Margin="5,0"
+                        Style="{DynamicResource MaterialDesignRaisedButton}"
+                        ToolTip="Export as PLIST for Microsoft Edge on macOS (ManagedFavorites)" />
+                <Button Content="Chrome (PLIST)" Click="ExportChromeMac_Click" Width="130" Margin="5,0"
+                        Style="{DynamicResource MaterialDesignRaisedButton}"
+                        ToolTip="Export as PLIST for Google Chrome on macOS (ManagedBookmarks)" />
+            </StackPanel>
         </StackPanel>
 
         <!-- Browser Selection ComboBox (Restored) -->
-        <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10"/>
+        <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10"/>
 
     </Grid>
 </Window>

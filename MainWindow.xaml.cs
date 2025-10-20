@@ -20,6 +20,8 @@ using System.Xml.Linq;
 using Serilog;
 using Windows.UI.WebUI;
 using System.Reflection;
+using Google_Bookmarks_Manager_for_GPOs.Services;
+using Google_Bookmarks_Manager_for_GPOs.Models;
 
 namespace Google_Bookmarks_Manager_for_GPOs
 {
@@ -39,6 +41,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private Bookmark _draggedBookmark;
         private TreeViewItem _draggedItemContainer;
         private bool _isDragging = false;
+        private InsertionAdorner _insertionAdorner; // visual drop feedback
         private DateTime _lastClickTime;
         private ObservableCollection<Bookmark> _originalBookmarks;
         private string _searchQuery;
@@ -50,6 +53,12 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private ChromeManager chromeManager = new ChromeManager();
         private EdgeManager edgeManager = new EdgeManager();
 
+        // New Services
+        private ProfileService _profileService;
+        private List<BookmarkProfile> _profiles;
+        private BookmarkProfile _currentProfile;
+        private bool _isLoadingProfile = false; // Flag to prevent saves during profile load
+
         #endregion Fields
 
         #region Constructors
@@ -57,28 +66,36 @@ namespace Google_Bookmarks_Manager_for_GPOs
         public MainWindow()
         {
             InitializeComponent();
-            // Upgrade settings if required (only once after an update)
-            if (Properties.Settings.Default.UpgradeRequired)
+
+            // Initialize services
+            _profileService = new ProfileService();
+
+            // Load persisted profiles file path if it exists (after settings were upgraded in App.OnStartup)
+            if (!string.IsNullOrWhiteSpace(Properties.Settings.Default.ProfilesFilePath))
             {
-                Properties.Settings.Default.Upgrade(); // Migrate old settings
-                Properties.Settings.Default.UpgradeRequired = false; // Prevent further upgrades
-                Properties.Settings.Default.Save(); // Persist setting
+                _profileService.CurrentFilePath = Properties.Settings.Default.ProfilesFilePath;
+                Log.Information("Loaded saved profiles path: {Path}", _profileService.CurrentFilePath);
             }
 
             // Restore the saved theme preference
             bool isDarkMode = Properties.Settings.Default.IsDarkMode;
             darkModeCheckBox.IsChecked = isDarkMode;
             SwitchTheme(isDarkMode);
+
             // Ensure initialization happens only once
             if (Bookmarks == null)
             {
                 Bookmarks = new ObservableCollection<Bookmark>();
             }
             _originalBookmarks = new ObservableCollection<Bookmark>(Bookmarks);  // Backup the original list
+
             string version = GetAppVersion();
-            this.Title = $"Bookmark Mangager for Intune/GPO - Version {version}";
+            this.Title = $"Bookmark Manager for Intune/GPO - Version {version}";
             DataContext = this;
-            LoadBookmarksFromFile();
+
+            // Load profiles and bookmarks
+            _ = InitializeProfilesAsync();
+
             this.Closing += MainWindow_Closing;
         }
 
@@ -228,7 +245,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             var newBookmark = new Bookmark
             {
                 Name = "New Bookmark",
-                Url = "http://",
+                Url = "https://",
                 IsFolder = false
             };
 
@@ -244,6 +261,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             UpdateOriginalBookmarks();
             OnPropertyChanged(nameof(Bookmarks));
             ExpandAndSelectNewItem(newBookmark);
+            AutoSaveCurrentProfile();
         }
 
         private void AddFolder_Click(object sender, RoutedEventArgs e)
@@ -268,6 +286,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
             UpdateOriginalBookmarks();
             OnPropertyChanged(nameof(Bookmarks));
             ExpandAndSelectNewItem(newFolder);
+            AutoSaveCurrentProfile();
         }
 
         private void AddNestedBookmark_Click(object sender, RoutedEventArgs e)
@@ -277,7 +296,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 parentFolder != null && // Explicit null check
                 parentFolder.IsFolder)
             {
-                var newBookmark = new Bookmark { Name = "New Bookmark", Url = "http://", IsFolder = false };
+                var newBookmark = new Bookmark { Name = "New Bookmark", Url = "https://", IsFolder = false };
 
                 // Add the new bookmark to the folder
                 parentFolder.Children.Add(newBookmark);
@@ -300,6 +319,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
                         newBookmarkItem.BringIntoView();
                     }
                 });
+
+                AutoSaveCurrentProfile();
             }
         }
 
@@ -335,6 +356,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
                         }, System.Windows.Threading.DispatcherPriority.Background);
                     }
                 }, System.Windows.Threading.DispatcherPriority.Background);
+
+                AutoSaveCurrentProfile();
             }
             else
             {
@@ -349,6 +372,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 Name = "New Folder",
                 IsFolder = true
             });
+            AutoSaveCurrentProfile();
         }
 
         private void AppendBookmarkToHtml(Bookmark bookmark, StringBuilder html, int indentLevel)
@@ -387,6 +411,26 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 var position = e.GetPosition(BookmarksTreeView);
                 _dragAdorner.UpdatePosition(position.X, position.Y);
             }
+
+            // Determine target item and show insertion feedback
+            var targetItem = GetNearestContainer(e.OriginalSource as DependencyObject);
+            RemoveInsertionAdorner();
+            if (targetItem != null)
+            {
+                var mousePos = e.GetPosition(targetItem);
+                var third = targetItem.ActualHeight / 3.0;
+                InsertionPosition pos = InsertionPosition.Inside;
+                if (mousePos.Y < third)
+                    pos = InsertionPosition.Above;
+                else if (mousePos.Y > targetItem.ActualHeight - third)
+                    pos = InsertionPosition.Below;
+                else
+                    pos = InsertionPosition.Inside;
+
+                _insertionAdorner = new InsertionAdorner(targetItem, pos);
+                var layer = AdornerLayer.GetAdornerLayer(targetItem);
+                layer?.Add(_insertionAdorner);
+            }
             e.Handled = true;
         }
 
@@ -394,14 +438,20 @@ namespace Google_Bookmarks_Manager_for_GPOs
         {
             if (_draggedBookmark == null) return;
 
-            var targetBookmark = (e.OriginalSource as FrameworkElement)?.DataContext as Bookmark;
-            if (targetBookmark == null || targetBookmark == _draggedBookmark) return;
+            var targetContainer = GetNearestContainer(e.OriginalSource as DependencyObject);
+            var targetBookmark = targetContainer?.DataContext as Bookmark;
+            if (targetBookmark == null || targetBookmark == _draggedBookmark)
+            {
+                RemoveInsertionAdorner();
+                return;
+            }
 
             // Prevent moving root folders
             if (_draggedBookmark.IsRootFolder)
             {
                 CustomMessageBox.Show("Root folders cannot be moved.", "Operation Not Allowed", MessageBoxButton.OK);
                 _draggedBookmark = null;
+                RemoveInsertionAdorner();
                 return;
             }
 
@@ -417,28 +467,39 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 Bookmarks.Remove(_draggedBookmark);
             }
 
-            // Handle dropping into a folder or reordering at the same level
-            if (targetBookmark.IsFolder)
+            // Determine intended drop position
+            var mousePos = e.GetPosition(targetContainer);
+            var third = targetContainer.ActualHeight / 3.0;
+            bool dropAbove = mousePos.Y < third;
+            bool dropBelow = mousePos.Y > (targetContainer.ActualHeight - third);
+
+            if (!dropAbove && !dropBelow && targetBookmark.IsFolder)
             {
+                // Drop inside the folder
                 targetBookmark.Children.Add(_draggedBookmark);
             }
             else
             {
+                // Reorder at same level above/below target
                 var targetParent = FindParentBookmark(Bookmarks, targetBookmark);
                 if (targetParent != null)
                 {
                     int targetIndex = targetParent.Children.IndexOf(targetBookmark);
+                    if (dropBelow) targetIndex++;
                     targetParent.Children.Insert(targetIndex, _draggedBookmark);
                 }
                 else
                 {
                     int targetIndex = Bookmarks.IndexOf(targetBookmark);
+                    if (dropBelow) targetIndex++;
                     Bookmarks.Insert(targetIndex, _draggedBookmark);
                 }
             }
 
             _draggedBookmark = null;
             OnPropertyChanged(nameof(Bookmarks));
+            AutoSaveCurrentProfile();
+            RemoveInsertionAdorner();
         }
 
         private void BookmarksTreeView_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -462,6 +523,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 _isDragging = true;
                 DragDrop.DoDragDrop(BookmarksTreeView, _draggedBookmark, DragDropEffects.Move);
                 _isDragging = false;
+                RemoveInsertionAdorner();
             }
         }
 
@@ -471,6 +533,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
             if (item != null)
             {
+                // Focus the TreeView and select the item so active selection styles are used
+                BookmarksTreeView.Focus();
                 item.IsSelected = true;  // Select the item under right-click
             }
             else
@@ -788,6 +852,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 }
 
                 OnPropertyChanged(nameof(Bookmarks));
+                AutoSaveCurrentProfile();
             }
         }
 
@@ -812,50 +877,28 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }, System.Windows.Threading.DispatcherPriority.Background);
         }
 
-        private void exportBookmarksButton_Click_1(object sender, RoutedEventArgs e)
+        private async void importFromClipboard_Click(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                var exportList = new JArray();
-
-                // Ensure the top-level name is the first item
-                exportList.Add(new JObject
-                {
-                    ["toplevel_name"] = TopLevelFolderName
-                });
-
-                // Add all bookmarks as separate items (not nested under "bookmarks")
-                foreach (var bookmark in Bookmarks)
-                {
-                    exportList.Add(ConvertBookmarkToOriginalFormat(bookmark));
-                }
-
-                var json = exportList.ToString(Formatting.Indented);
-                Clipboard.SetText(json);
-                CustomMessageBox.Show("Bookmarks exported to clipboard in the desired format!", "Confirmation", MessageBoxButton.OK);
-            }
-            catch (Exception ex)
-            {
-                CustomMessageBox.Show($"Error during export: {ex.Message}", "Error", MessageBoxButton.OK);
-            }
+            await ImportFromClipboardAsync();
         }
 
-        private void exportchromexml_Click(object sender, RoutedEventArgs e)
+        // Legacy handlers - keeping for compatibility
+        private async void exportBookmarksButton_Click_1(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                MacExportManager macExportManager = new MacExportManager();
-                string plistXml = macExportManager.GenerateMacChromePlistXml(Bookmarks, TopLevelFolderName); // Pass the UI value
-                Clipboard.SetText(plistXml);
-                CustomMessageBox.Show("Bookmarks successfully exported to macOS plist format!", "Success", MessageBoxButton.OK);
-            }
-            catch (Exception ex)
-            {
-                CustomMessageBox.Show($"Error exporting to plist: {ex.Message}", "Error", MessageBoxButton.OK);
-            }
+            await ExportToClipboardAsJsonAsync("ManagedBookmarks");
         }
 
-        private void exportxml_Click(object sender, RoutedEventArgs e)
+        private async void exportchromexml_Click(object sender, RoutedEventArgs e)
+        {
+            await ExportToClipboardAsPlistAsync("ManagedBookmarks");
+        }
+
+        private async void exportxml_Click(object sender, RoutedEventArgs e)
+        {
+            await ExportToClipboardAsPlistAsync("ManagedFavorites");
+        }
+
+        private void exportxml_Click_Legacy(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -1051,6 +1094,16 @@ namespace Google_Bookmarks_Manager_for_GPOs
             return source as TreeViewItem;
         }
 
+        private void RemoveInsertionAdorner()
+        {
+            if (_insertionAdorner != null)
+            {
+                var layer = AdornerLayer.GetAdornerLayer(_insertionAdorner.AdornedElement);
+                layer?.Remove(_insertionAdorner);
+                _insertionAdorner = null;
+            }
+        }
+
         private bool GetSelectedBookmark(object sender, out Bookmark selectedBookmark)
         {
             if (sender is MenuItem menuItem && menuItem.DataContext is Bookmark bookmark)
@@ -1146,9 +1199,10 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
-        private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        private async void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            SaveBookmarksToFile();
+            // Save using new profile service
+            await SaveCurrentProfileAsync();
         }
 
         private void MarkFolderStatus(Bookmark bookmark)
@@ -1435,6 +1489,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 selectedBookmark.Url = bookmarkUrlTextBox.Text;
 
                 CustomMessageBox.Show("Bookmark updated!", "Confirmation", MessageBoxButton.OK);
+                AutoSaveCurrentProfile();
             }
         }
 
@@ -1689,6 +1744,524 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 e.Handled = true;
             }
         }
+
+        #region Profile Management Methods
+
+        private async System.Threading.Tasks.Task InitializeProfilesAsync()
+        {
+            try
+            {
+                _isLoadingProfile = true; // Set flag during initialization
+                _profiles = await _profileService.LoadAllProfilesAsync();
+
+                // Load the first profile or create a default one
+                if (_profiles.Count > 0)
+                {
+                    await LoadProfileAsync(_profiles[0]);
+                }
+                else
+                {
+                    _currentProfile = new BookmarkProfile
+                    {
+                        Name = "Default Profile",
+                        TopLevelFolderName = "Managed Bookmarks"
+                    };
+                    _profiles.Add(_currentProfile);
+                }
+
+                // Populate the ComboBox AFTER loading profile data
+                await RefreshProfileComboBox();
+
+                _isLoadingProfile = false; // Clear flag after initialization
+                Log.Information("Loaded {Count} profiles", _profiles.Count);
+            }
+            catch (Exception ex)
+            {
+                _isLoadingProfile = false; // Clear flag on error
+                Log.Error("Error initializing profiles: {Message}", ex.Message);
+                // Fallback to legacy load
+                LoadBookmarksFromFile();
+            }
+        }
+
+        private async System.Threading.Tasks.Task LoadProfileAsync(BookmarkProfile profile)
+        {
+            try
+            {
+                _isLoadingProfile = true; // Set flag to prevent auto-saves during load
+
+                // Convert BookmarkItems to Bookmarks for UI
+                var bookmarks = BookmarkModelConverter.ToBookmarkCollection(profile.Bookmarks);
+
+                Bookmarks.Clear();
+                foreach (var bookmark in bookmarks)
+                {
+                    Bookmarks.Add(bookmark);
+                }
+
+                TopLevelFolderName = profile.TopLevelFolderName;
+                _currentProfile = profile; // Set current profile after loading data
+                UpdateOriginalBookmarks();
+
+                Log.Information("Loaded profile: {Name} with {Count} bookmarks", profile.Name, profile.Bookmarks?.Count ?? 0);
+
+                _isLoadingProfile = false; // Clear flag after load is complete
+            }
+            catch (Exception ex)
+            {
+                _isLoadingProfile = false; // Clear flag on error
+                Log.Error("Error loading profile: {Message}", ex.Message);
+            }
+        }
+
+        private async System.Threading.Tasks.Task SaveCurrentProfileAsync()
+        {
+            try
+            {
+                if (_currentProfile == null || _profiles == null)
+                    return;
+
+                // Convert UI Bookmarks to BookmarkItems
+                _currentProfile.Bookmarks = BookmarkModelConverter.ToBookmarkItemList(Bookmarks);
+                _currentProfile.TopLevelFolderName = TopLevelFolderName ?? "Managed Bookmarks";
+
+                await _profileService.UpdateProfileAsync(_currentProfile, _profiles);
+                Log.Information("Saved profile: {Name}", _currentProfile.Name);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error saving profile: {Message}", ex.Message);
+            }
+        }
+
+        private async void AutoSaveCurrentProfile()
+        {
+            // Don't auto-save if we're in the middle of loading a profile
+            if (_isLoadingProfile)
+            {
+                Log.Debug("Skipping auto-save during profile load");
+                return;
+            }
+
+            await SaveCurrentProfileAsync();
+        }
+
+        // Export button handlers for specific browser/platform combinations
+
+        private async void ExportEdgeWindows_Click(object sender, RoutedEventArgs e)
+        {
+            await ExportToClipboardAsJsonAsync("ManagedFavorites");
+        }
+
+        private async void ExportChromeWindows_Click(object sender, RoutedEventArgs e)
+        {
+            await ExportToClipboardAsJsonAsync("ManagedBookmarks");
+        }
+
+        private async void ExportEdgeMac_Click(object sender, RoutedEventArgs e)
+        {
+            await ExportToClipboardAsPlistAsync("ManagedFavorites");
+        }
+
+        private async void ExportChromeMac_Click(object sender, RoutedEventArgs e)
+        {
+            await ExportToClipboardAsPlistAsync("ManagedBookmarks");
+        }
+
+        private async void OpenProfileFrom_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var openDialog = new Microsoft.Win32.OpenFileDialog
+                {
+                    Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
+                    DefaultExt = ".json",
+                    Title = "Open Profile"
+                };
+
+                if (openDialog.ShowDialog() == true)
+                {
+                    var profile = await _profileService.LoadSingleProfileAsync(openDialog.FileName);
+                    if (profile != null)
+                    {
+                        // Check if profile already exists in current profiles
+                        var existing = _profiles.FirstOrDefault(p => p.Id == profile.Id);
+                        if (existing != null)
+                        {
+                            // Update existing profile
+                            await LoadProfileAsync(profile);
+                            CustomMessageBox.Show($"Loaded profile: {profile.Name}", "Success", MessageBoxButton.OK);
+                        }
+                        else
+                        {
+                            // Add new profile to collection
+                            _profiles.Add(profile);
+                            await _profileService.SaveAllProfilesAsync(_profiles);
+                            await RefreshProfileComboBox();
+                            ProfileComboBox.SelectedItem = profile;
+                            CustomMessageBox.Show($"Loaded and added profile: {profile.Name}", "Success", MessageBoxButton.OK);
+                        }
+
+                        Log.Information("Loaded profile from: {Path}", openDialog.FileName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error loading profile: {Message}", ex.Message);
+                CustomMessageBox.Show($"Error loading profile: {ex.Message}", "Error", MessageBoxButton.OK);
+            }
+        }
+
+        private async void ChangeSaveLocation_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var saveDialog = new Microsoft.Win32.SaveFileDialog
+                {
+                    Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
+                    DefaultExt = ".json",
+                    FileName = "profiles.json",
+                    Title = "Choose Save Location for ALL Profiles",
+                    InitialDirectory = !string.IsNullOrEmpty(_profileService.CurrentFilePath)
+                        ? Path.GetDirectoryName(_profileService.CurrentFilePath)
+                        : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+                };
+
+                if (saveDialog.ShowDialog() == true)
+                {
+                    _profileService.CurrentFilePath = saveDialog.FileName;
+
+                    // Save the path to settings so it persists between sessions
+                    Properties.Settings.Default.ProfilesFilePath = saveDialog.FileName;
+                    Properties.Settings.Default.Save();
+
+                    await _profileService.SaveAllProfilesAsync(_profiles);
+                    CustomMessageBox.Show($"All profiles will now be saved to:\n{saveDialog.FileName}\n\nThis location will be used for ALL profiles.\nShare this file with your team for collaboration!\n\nAuto-save is enabled - all changes save automatically.\n\nThis location will be remembered when you restart the app.", "Save Location Changed", MessageBoxButton.OK);
+                    Log.Information("Changed save location to: {Path}", saveDialog.FileName);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error changing save location: {Message}", ex.Message);
+                CustomMessageBox.Show($"Error changing save location: {ex.Message}", "Error", MessageBoxButton.OK);
+            }
+        }
+
+        private async System.Threading.Tasks.Task ImportFromClipboardAsync()
+        {
+            try
+            {
+                // Show the import window for user to paste bookmarks
+                var importWindow = new ImportWindow();
+                if (importWindow.ShowDialog() != true || string.IsNullOrWhiteSpace(importWindow.Json))
+                {
+                    return;
+                }
+
+                string content = importWindow.Json.Trim();
+                List<BookmarkItem>? bookmarkItems = null;
+
+                // Detect format and parse
+                if (content.StartsWith("<?xml") || content.Contains("<plist>") || content.Contains("<key>"))
+                {
+                    // PLIST XML format
+                    Log.Information("Detected PLIST XML format");
+
+                    // Save to temp file and use PlistBookmarkService
+                    var tempFile = Path.GetTempFileName();
+                    await File.WriteAllTextAsync(tempFile, content);
+
+                    bookmarkItems = PlistBookmarkService.LoadFromPlist(tempFile);
+                    File.Delete(tempFile);
+
+                    // Extract top-level folder name
+                    var topLevel = BookmarkModelConverter.ExtractTopLevelFolderName(bookmarkItems);
+                    if (!string.IsNullOrEmpty(topLevel))
+                    {
+                        TopLevelFolderName = topLevel;
+                    }
+                }
+                else if (content.StartsWith("[") || content.StartsWith("{"))
+                {
+                    // JSON format
+                    Log.Information("Detected JSON format");
+
+                    var tempFile = Path.GetTempFileName();
+                    await File.WriteAllTextAsync(tempFile, content);
+
+                    bookmarkItems = await JsonBookmarkService.LoadFromJsonAsync(tempFile);
+                    File.Delete(tempFile);
+
+                    // Extract top-level folder name
+                    var topLevel = BookmarkModelConverter.ExtractTopLevelFolderName(bookmarkItems);
+                    if (!string.IsNullOrEmpty(topLevel))
+                    {
+                        TopLevelFolderName = topLevel;
+                    }
+                }
+                else
+                {
+                    CustomMessageBox.Show("Unrecognized format. Please paste valid JSON or PLIST XML.", "Error", MessageBoxButton.OK);
+                    return;
+                }
+
+                if (bookmarkItems != null)
+                {
+                    // Convert to UI model
+                    var bookmarks = BookmarkModelConverter.ToBookmarkCollection(bookmarkItems);
+                    Bookmarks.Clear();
+                    foreach (var bookmark in bookmarks)
+                    {
+                        Bookmarks.Add(bookmark);
+                    }
+
+                    UpdateOriginalBookmarks();
+                    OnPropertyChanged(nameof(Bookmarks));
+                    OnPropertyChanged(nameof(TopLevelFolderName));
+
+                    AutoSaveCurrentProfile();
+                    CustomMessageBox.Show("Bookmarks imported successfully!", "Success", MessageBoxButton.OK);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error importing bookmarks: {Message}", ex.Message);
+                CustomMessageBox.Show($"Error importing bookmarks: {ex.Message}", "Error", MessageBoxButton.OK);
+            }
+        }
+
+        private async System.Threading.Tasks.Task ExportToClipboardAsJsonAsync(string policyKey)
+        {
+            try
+            {
+                var bookmarkItems = BookmarkModelConverter.CreateBookmarkItemListWithTopLevel(
+                    Bookmarks,
+                    TopLevelFolderName ?? "Managed Bookmarks"
+                );
+
+                // Add toplevel flag for Edge on Windows
+                if (policyKey == "ManagedFavorites")
+                {
+                    // For Edge, mark non-folder items at root level with toplevel: true
+                    foreach (var item in bookmarkItems.Skip(1)) // Skip the toplevel_name entry
+                    {
+                        if (item.Children == null || item.Children.Count == 0)
+                        {
+                            item.TopLevel = true;
+                        }
+                    }
+                }
+
+                var tempFile = Path.GetTempFileName();
+                await JsonBookmarkService.SaveToJsonAsync(tempFile, bookmarkItems);
+
+                var json = await File.ReadAllTextAsync(tempFile);
+                File.Delete(tempFile);
+
+                Clipboard.SetText(json);
+
+                string browserName = policyKey == "ManagedFavorites" ? "Microsoft Edge" : "Google Chrome";
+                CustomMessageBox.Show($"Bookmarks exported to clipboard as JSON for {browserName} on Windows!\n\nPolicy Key: {policyKey}", "Success", MessageBoxButton.OK);
+                Log.Information("Exported bookmarks as JSON for {Browser} on Windows", browserName);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error exporting to clipboard: {Message}", ex.Message);
+                CustomMessageBox.Show($"Error exporting: {ex.Message}", "Error", MessageBoxButton.OK);
+            }
+        }
+
+        private async System.Threading.Tasks.Task ExportToClipboardAsPlistAsync(string keyName)
+        {
+            try
+            {
+                var bookmarkItems = BookmarkModelConverter.CreateBookmarkItemListWithTopLevel(
+                    Bookmarks,
+                    TopLevelFolderName ?? "Managed Bookmarks"
+                );
+
+                var tempFile = Path.GetTempFileName();
+                PlistBookmarkService.SaveToPlist(tempFile, keyName, bookmarkItems);
+
+                var plist = await File.ReadAllTextAsync(tempFile);
+                File.Delete(tempFile);
+
+                Clipboard.SetText(plist);
+
+                string browserName = keyName == "ManagedFavorites" ? "Microsoft Edge" : "Google Chrome";
+                CustomMessageBox.Show($"Bookmarks exported to clipboard as PLIST for {browserName} on macOS!\n\nPolicy Key: {keyName}\n\nReady to paste into Intune Configuration Profile.", "Success", MessageBoxButton.OK);
+                Log.Information("Exported bookmarks as PLIST for {Browser} on macOS", browserName);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error exporting to clipboard: {Message}", ex.Message);
+                CustomMessageBox.Show($"Error exporting: {ex.Message}", "Error", MessageBoxButton.OK);
+            }
+        }
+
+        private async void ProfileComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // Ignore selection changes during initialization
+            if (_isLoadingProfile || _profiles == null)
+                return;
+
+            if (ProfileComboBox.SelectedItem is BookmarkProfile selectedProfile)
+            {
+                // Don't reload if it's the same profile
+                if (_currentProfile != null && _currentProfile.Id == selectedProfile.Id)
+                {
+                    Log.Debug("Same profile selected, skipping reload");
+                    return;
+                }
+
+                // Save current profile before switching (with current bookmarks)
+                if (_currentProfile != null)
+                {
+                    Log.Information("Saving profile '{CurrentName}' before switching to '{NewName}'",
+                        _currentProfile.Name, selectedProfile.Name);
+
+                    // Ensure we save the current state
+                    _currentProfile.Bookmarks = BookmarkModelConverter.ToBookmarkItemList(Bookmarks);
+                    _currentProfile.TopLevelFolderName = TopLevelFolderName ?? "Managed Bookmarks";
+                    await _profileService.UpdateProfileAsync(_currentProfile, _profiles);
+
+                    Log.Information("Saved {Count} bookmarks from profile '{Name}'",
+                        _currentProfile.Bookmarks.Count, _currentProfile.Name);
+                }
+
+                // Now load the new profile
+                await LoadProfileAsync(selectedProfile);
+            }
+        }
+
+        private async void NewProfile_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Create an input dialog
+                var inputWindow = new InputDialog();
+                inputWindow.Title = "New Profile";
+                inputWindow.InputLabel = "Profile Name:";
+                inputWindow.InputText = "New Profile";
+
+                if (inputWindow.ShowDialog() == true && !string.IsNullOrWhiteSpace(inputWindow.InputText))
+                {
+                    string profileName = inputWindow.InputText.Trim();
+
+                    // Get top-level folder name
+                    var folderWindow = new InputDialog();
+                    folderWindow.Title = "Top-Level Folder Name";
+                    folderWindow.InputLabel = "Folder Name:";
+                    folderWindow.InputText = "Managed Bookmarks";
+
+                    if (folderWindow.ShowDialog() == true && !string.IsNullOrWhiteSpace(folderWindow.InputText))
+                    {
+                        string folderName = folderWindow.InputText.Trim();
+
+                        var newProfile = await _profileService.CreateProfileAsync(profileName, folderName, _profiles);
+                        await RefreshProfileComboBox();
+                        ProfileComboBox.SelectedItem = newProfile;
+
+                        CustomMessageBox.Show($"Profile '{profileName}' created successfully!", "Success", MessageBoxButton.OK);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error creating profile: {Message}", ex.Message);
+                CustomMessageBox.Show($"Error creating profile: {ex.Message}", "Error", MessageBoxButton.OK);
+            }
+        }
+
+        private async void RenameProfile_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_currentProfile == null)
+                {
+                    CustomMessageBox.Show("No profile selected.", "Error", MessageBoxButton.OK);
+                    return;
+                }
+
+                var inputWindow = new InputDialog();
+                inputWindow.Title = "Rename Profile";
+                inputWindow.InputLabel = "New Profile Name:";
+                inputWindow.InputText = _currentProfile.Name;
+
+                if (inputWindow.ShowDialog() == true && !string.IsNullOrWhiteSpace(inputWindow.InputText))
+                {
+                    string newName = inputWindow.InputText.Trim();
+                    await _profileService.RenameProfileAsync(_currentProfile.Id, newName, _profiles);
+                    await RefreshProfileComboBox();
+
+                    CustomMessageBox.Show($"Profile renamed to '{newName}' successfully!", "Success", MessageBoxButton.OK);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error renaming profile: {Message}", ex.Message);
+                CustomMessageBox.Show($"Error renaming profile: {ex.Message}", "Error", MessageBoxButton.OK);
+            }
+        }
+
+        private async void DeleteProfile_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_currentProfile == null)
+                {
+                    CustomMessageBox.Show("No profile selected.", "Error", MessageBoxButton.OK);
+                    return;
+                }
+
+                if (_profiles.Count <= 1)
+                {
+                    CustomMessageBox.Show("Cannot delete the last profile.", "Error", MessageBoxButton.OK);
+                    return;
+                }
+
+                var result = CustomMessageBox.Show(
+                    $"Are you sure you want to delete profile '{_currentProfile.Name}'?",
+                    "Confirm Delete",
+                    MessageBoxButton.OKCancel);
+
+                if (result == MessageBoxResult.OK)
+                {
+                    await _profileService.DeleteProfileAsync(_currentProfile.Id, _profiles);
+
+                    // Load the first remaining profile
+                    if (_profiles.Count > 0)
+                    {
+                        await RefreshProfileComboBox();
+                        ProfileComboBox.SelectedIndex = 0;
+                    }
+
+                    CustomMessageBox.Show("Profile deleted successfully!", "Success", MessageBoxButton.OK);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error deleting profile: {Message}", ex.Message);
+                CustomMessageBox.Show($"Error deleting profile: {ex.Message}", "Error", MessageBoxButton.OK);
+            }
+        }
+
+        private async System.Threading.Tasks.Task RefreshProfileComboBox()
+        {
+            var wasLoading = _isLoadingProfile;
+            _isLoadingProfile = true; // Prevent SelectionChanged from firing during refresh
+
+            ProfileComboBox.ItemsSource = null;
+            ProfileComboBox.ItemsSource = _profiles;
+            ProfileComboBox.DisplayMemberPath = "Name";
+            ProfileComboBox.SelectedItem = _currentProfile;
+
+            if (!wasLoading)
+                _isLoadingProfile = false; // Restore flag if it wasn't already set
+        }
+
+        #endregion Profile Management Methods
 
         #endregion Methods
 
