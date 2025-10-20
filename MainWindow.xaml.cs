@@ -965,6 +965,14 @@ namespace Google_Bookmarks_Manager_for_GPOs
             {
                 DeleteBookmark(selected);
             }
+            else
+            {
+                // use the highlighted item in the treeview
+                if (BookmarksTreeView.SelectedItem is Bookmark selectedBookmark)
+                {
+                    DeleteBookmark(selectedBookmark);
+                }
+            }
         }
 
         private void ExpandAndSelectNewItem(Bookmark newItem)
