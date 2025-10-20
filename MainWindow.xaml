@@ -71,6 +71,8 @@
                             Style="{DynamicResource MaterialDesignRaisedButton}" />
                     <Button Content="Rename" Click="RenameProfile_Click" Width="93" Margin="5,0"
                             Style="{DynamicResource MaterialDesignRaisedButton}" />
+                <Button Content="Copy" Click="CopyProfile_Click" Width="80" Margin="5,0"
+                        Style="{DynamicResource MaterialDesignRaisedButton}" />
                     <Button Content="Delete" Click="DeleteProfile_Click" Width="89" Margin="5,0"
                             Style="{DynamicResource MaterialDesignRaisedButton}" />
                     <CheckBox x:Name="darkModeCheckBox"

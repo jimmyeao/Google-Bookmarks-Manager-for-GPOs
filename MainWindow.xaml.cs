@@ -335,28 +335,48 @@ namespace Google_Bookmarks_Manager_for_GPOs
             {
                 var newBookmark = new Bookmark { Name = "New Bookmark", Url = "https://", IsFolder = false };
 
-                parentFolder.Children.Add(newBookmark);
-
-                // Refresh UI, expand parent and select new bookmark
-                Dispatcher.Invoke(() =>
+                bool filtering = !string.IsNullOrWhiteSpace(SearchQuery);
+                Bookmark targetFolder = parentFolder;
+                if (filtering)
                 {
-                    var treeViewItem = GetTreeViewItemForBookmark(parentFolder);
-                    if (treeViewItem != null)
-                    {
-                        treeViewItem.IsExpanded = true;
-                        treeViewItem.UpdateLayout();
-                    }
+                    // Map filtered folder to the original tree
+                    targetFolder = FindEquivalentBookmark(_originalBookmarks, parentFolder) ?? parentFolder;
+                }
 
-                    var newBookmarkItem = GetTreeViewItemForBookmark(newBookmark);
-                    if (newBookmarkItem != null)
+                targetFolder.Children.Add(newBookmark);
+
+                if (filtering)
+                {
+                    // Rebuild filtered view
+                    FilterBookmarks();
+                }
+                else
+                {
+                    // Refresh UI, expand parent and select new bookmark
+                    Dispatcher.Invoke(() =>
                     {
-                        newBookmarkItem.IsSelected = true;
-                        newBookmarkItem.BringIntoView();
-                    }
-                });
+                        var treeViewItem = GetTreeViewItemForBookmark(targetFolder);
+                        if (treeViewItem != null)
+                        {
+                            treeViewItem.IsExpanded = true;
+                            treeViewItem.UpdateLayout();
+                        }
+
+                        var newBookmarkItem = GetTreeViewItemForBookmark(newBookmark);
+                        if (newBookmarkItem != null)
+                        {
+                            newBookmarkItem.IsSelected = true;
+                            newBookmarkItem.BringIntoView();
+                        }
+                    });
+
+                    UpdateOriginalBookmarks();
+                    OnPropertyChanged(nameof(Bookmarks));
+                }
 
                 AutoSaveCurrentProfile();
             }
+            e.Handled = true;
         }
 
         private void AddNestedFolder_Click(object sender, RoutedEventArgs e)
@@ -712,34 +732,45 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private void clearFormButton_Click(object sender, RoutedEventArgs e)
         {
-            // Clear the TreeView by resetting the Bookmarks collection
-            //ask the user using our custom diallog, are we sure?
+            // Confirm destructive action
+            var result = CustomMessageBox.Show(
+                "This will remove ALL bookmarks and folders in the current profile.\n\nAre you sure?",
+                "ARE YOU SURE?",
+                MessageBoxButton.OKCancel);
 
+            if (result != MessageBoxResult.OK)
+                return;
 
-
+            // Clear all data in current profile
             Bookmarks.Clear();
-            // clear the textboxes
+            UpdateOriginalBookmarks();
+            OnPropertyChanged(nameof(Bookmarks));
+
+            // Reset fields
+            TopLevelFolderName = string.Empty;
+            OnPropertyChanged(nameof(TopLevelFolderName));
             TopLevelFolderNameTextBox.Text = string.Empty;
-            // Clear the text boxes
             bookmarkNameTextBox.Text = string.Empty;
             bookmarkUrlTextBox.Text = string.Empty;
+
+            AutoSaveCurrentProfile();
         }
 
-        //private string ConvertBookmarksToChromeJson()
-        //{
-        //    var rootObject = new JObject
-        //    {
-        //        ["roots"] = new JObject
-        //        {
-        //            ["bookmark_bar"] = new JObject
-        //            {
-        //                ["children"] = new JArray(Bookmarks.Select(ConvertBookmarkToChromeFormat))
-        //            }
-        //        }
-        //    };
+        // private string ConvertBookmarksToChromeJson()
+        // {
+        //     var rootObject = new JObject
+        //     {
+        //         ["roots"] = new JObject
+        //         {
+        //             ["bookmark_bar"] = new JObject
+        //             {
+        //                 ["children"] = new JArray(Bookmarks.Select(ConvertBookmarkToChromeFormat))
+        //             }
+        //         }
+        //     };
 
-        //    return rootObject.ToString(Formatting.Indented);
-        //}
+        //     return rootObject.ToString(Formatting.Indented);
+        // }
 
         private JObject ConvertBookmarkToChromeFormat(Bookmark bookmark)
         {
@@ -1153,14 +1184,15 @@ namespace Google_Bookmarks_Manager_for_GPOs
 
         private void FilterBookmarks()
         {
+            // Render from the original snapshot when filtering, but do not mutate the snapshot here
             if (string.IsNullOrWhiteSpace(SearchQuery))
             {
-                Bookmarks = new ObservableCollection<Bookmark>(_originalBookmarks);  // Restore original bookmarks
+                // Restore view to originals
+                Bookmarks = new ObservableCollection<Bookmark>(_originalBookmarks.Select(CloneForView));
             }
             else
             {
                 var filteredBookmarks = new ObservableCollection<Bookmark>();
-
                 foreach (var bookmark in _originalBookmarks)
                 {
                     var matchedBookmark = FindMatchingBookmarks(bookmark, SearchQuery);
@@ -1169,11 +1201,27 @@ namespace Google_Bookmarks_Manager_for_GPOs
                         filteredBookmarks.Add(matchedBookmark);
                     }
                 }
-
                 Bookmarks = filteredBookmarks;
             }
 
             OnPropertyChanged(nameof(Bookmarks));
+        }
+
+        // Create a shallow UI copy for the view so we never bind the original instances directly when rebuilding the view
+        private Bookmark CloneForView(Bookmark src)
+        {
+            var b = new Bookmark
+            {
+                Name = src.Name,
+                Url = src.Url,
+                IsFolder = src.IsFolder,
+                IsRootFolder = src.IsRootFolder,
+            };
+            foreach (var child in src.Children)
+            {
+                b.Children.Add(CloneForView(child));
+            }
+            return b;
         }
 
         private Bookmark FindMatchingBookmarks(Bookmark bookmark, string query)
@@ -2203,6 +2251,9 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 _currentProfile = profile; // Set current profile after loading data
                 UpdateOriginalBookmarks();
 
+                // Clear any active search to avoid mixing views with previous profile
+                SearchQuery = string.Empty;
+
                 Log.Information("Loaded profile: {Name} with {Count} bookmarks", profile.Name, profile.Bookmarks?.Count ?? 0);
 
                 _isLoadingProfile = false; // Clear flag after load is complete
@@ -2644,6 +2695,55 @@ namespace Google_Bookmarks_Manager_for_GPOs
             {
                 Log.Error("Error deleting profile: {Message}", ex.Message);
                 CustomMessageBox.Show($"Error deleting profile: {ex.Message}", "Error", MessageBoxButton.OK);
+            }
+        }
+
+        private async void CopyProfile_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_currentProfile == null)
+                {
+                    CustomMessageBox.Show("No profile selected.", "Error", MessageBoxButton.OK);
+                    return;
+                }
+
+                // Ask for new profile name
+                var inputWindow = new InputDialog();
+                inputWindow.Title = "Copy Profile";
+                inputWindow.InputLabel = "New Profile Name:";
+                inputWindow.InputText = _currentProfile.Name + " - Copy";
+
+                if (inputWindow.ShowDialog() != true || string.IsNullOrWhiteSpace(inputWindow.InputText))
+                    return;
+
+                string newName = inputWindow.InputText.Trim();
+
+                // Deep copy bookmarks
+                var sourceBookmarks = BookmarkModelConverter.ToBookmarkCollection(_currentProfile.Bookmarks);
+                var cloned = DeepCopyBookmarks(sourceBookmarks);
+                var clonedItems = BookmarkModelConverter.ToBookmarkItemList(cloned);
+
+                var newProfile = new BookmarkProfile
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Name = newName,
+                    TopLevelFolderName = _currentProfile.TopLevelFolderName,
+                    Bookmarks = clonedItems,
+                    LastModified = DateTime.Now
+                };
+
+                _profiles.Add(newProfile);
+                await _profileService.SaveAllProfilesAsync(_profiles);
+                await RefreshProfileComboBox();
+                ProfileComboBox.SelectedItem = newProfile;
+
+                CustomMessageBox.Show($"Profile copied to '{newName}'.", "Success", MessageBoxButton.OK);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error copying profile: {Message}", ex.Message);
+                CustomMessageBox.Show($"Error copying profile: {ex.Message}", "Error", MessageBoxButton.OK);
             }
         }
 
