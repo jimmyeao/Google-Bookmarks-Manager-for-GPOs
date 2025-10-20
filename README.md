@@ -1,14 +1,37 @@
-![CodeQL](https://github.com/jimmyeao/Google-Bookmarks-Manager-for-GPOs/actions/workflows/codeql.yml/badge.svg)
+﻿![CodeQL](https://github.com/jimmyeao/Google-Bookmarks-Manager-for-GPOs/actions/workflows/codeql.yml/badge.svg)
 [![License](https://img.shields.io/badge/License-MIT-blue)](#license)
 
 # Google Bookmarks Manager for GPOs
 
-This is a dead simple app for editing bookmarks deployed through GPOs for google chrome and/or Edge. Copy what you have, go to import and paste in, then add or remove as necessary then export to a single line file or the clipboard ready for pasting back in to the gpo
-![image](https://github.com/user-attachments/assets/77f67489-703f-4cc5-aa32-6d59fcc8247c)
+A simple, fast WPF app to edit and manage browser bookmarks for deployment via Intune or Group Policy (GPO) for Microsoft Edge and Google Chrome.
 
-Features:
-* Export as JSON to use in Group Policy / Intune for deploying to edge / chrome
-* Export as PLIST XML to use in Intune for deploying to MacOS edge / chrome
-* Persist list between runs
+Features
+- Profiles: create, rename, copy, delete and switch profiles. Profiles auto-save to a shared `profiles.json`.
+- Top-level folder per profile: set the folder that policies use (e.g., Managed Bookmarks).
+- Search: instant filter by name or URL without altering originals; edits during search update the underlying tree.
+- Inline actions: right-justified + (add bookmark to a folder) and − (delete) shown on hover or selection.
+- Drag and drop: reorder items or drop URLs directly from your browser/desktop.
+- Import: paste JSON or PLIST for Edge (`ManagedFavorites`) or Chrome (`ManagedBookmarks`). Importer sanitizes common XML issues.
+- Export:
+  - Windows (Intune/GPO) JSON for Edge or Chrome
+  - macOS (Intune) PLIST for Edge or Chrome
+- Safety prompts: confirmation on Clear All and delete.
+- Dark mode toggle.
+- Built on .NET 9 + MaterialDesignInXaml.
+
+Usage
+1) Build and run with .NET 9 SDK.
+2) Choose or create a Profile and set the Top-Level Folder Name.
+3) Import existing policy data (JSON or PLIST) using Import Bookmarks.
+4) Edit: use +/− actions, drag to reorder, or right-click folders for nested actions. Search to filter quickly.
+5) Export: choose Edge/Chrome (JSON) for Windows or Edge/Chrome (PLIST) for macOS. The result is copied to the clipboard ready for Intune/GPO.
+
+Notes
+- Search rebuilds a filtered view; 
+- PLIST export escapes special characters; PLIST import auto-fixes bare ampersands in string values.
+- You can change the save location of `profiles.json` to share with a team.
+
+License
+MIT
 
 

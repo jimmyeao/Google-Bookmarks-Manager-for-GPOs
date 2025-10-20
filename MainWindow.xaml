@@ -44,6 +44,9 @@
                 <MenuItem Header="Change Save Location..." Click="ChangeSaveLocation_Click" Icon="{materialDesign:PackIcon Kind=FolderMove}" />
                 <Separator />
                 <MenuItem Header="Open Profile From..." Click="OpenProfileFrom_Click" Icon="{materialDesign:PackIcon Kind=FolderOpen}" />
+                <Separator />
+                <MenuItem Header="Save Location:" IsEnabled="False" />
+                <MenuItem Header="{Binding SaveLocationPath}" IsEnabled="False" />
             </MenuItem>
         </Menu>
 

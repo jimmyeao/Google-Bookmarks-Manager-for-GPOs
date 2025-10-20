@@ -59,6 +59,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private List<BookmarkProfile> _profiles;
         private BookmarkProfile _currentProfile;
         private bool _isLoadingProfile = false; // Flag to prevent saves during profile load
+        public string SaveLocationPath { get; set; }
 
         #endregion Fields
 
@@ -72,11 +73,35 @@ namespace Google_Bookmarks_Manager_for_GPOs
             _profileService = new ProfileService();
 
             // Load persisted profiles file path if it exists (after settings were upgraded in App.OnStartup)
+            // Prefer path from user settings; if missing, fall back to a pointer file in AppData
             if (!string.IsNullOrWhiteSpace(Properties.Settings.Default.ProfilesFilePath))
             {
                 _profileService.CurrentFilePath = Properties.Settings.Default.ProfilesFilePath;
-                Log.Information("Loaded saved profiles path: {Path}", _profileService.CurrentFilePath);
+                Log.Information("Loaded saved profiles path from settings: {Path}", _profileService.CurrentFilePath);
             }
+            else
+            {
+                var pointerPath = System.IO.Path.Combine(AppDataFolder, "profiles.path");
+                try
+                {
+                    if (File.Exists(pointerPath))
+                    {
+                        var preferred = File.ReadAllText(pointerPath).Trim();
+                        if (!string.IsNullOrWhiteSpace(preferred))
+                        {
+                            _profileService.CurrentFilePath = preferred;
+                            Properties.Settings.Default.ProfilesFilePath = preferred;
+                            Properties.Settings.Default.Save();
+                            Log.Information("Loaded saved profiles path from pointer file: {Path}", preferred);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("Failed to read profiles pointer file: {Message}", ex.Message);
+                }
+            }
+            SaveLocationPath = _profileService.CurrentFilePath;
 
             // Restore the saved theme preference
             bool isDarkMode = Properties.Settings.Default.IsDarkMode;
@@ -94,7 +119,31 @@ namespace Google_Bookmarks_Manager_for_GPOs
             this.Title = $"Bookmark Manager for Intune/GPO - Version {version}";
             DataContext = this;
 
-            // Load profiles and bookmarks
+            // Ensure the preferred file exists (so subsequent loads use it)
+            try
+            {
+                var dir = System.IO.Path.GetDirectoryName(_profileService.CurrentFilePath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+                if (!File.Exists(_profileService.CurrentFilePath))
+                {
+                    // Create with a single default profile so future loads hit this path
+                    var defaultProfile = new List<BookmarkProfile>
+                    {
+                        new BookmarkProfile{ Name = "Default Profile", TopLevelFolderName = "Managed Bookmarks" }
+                    };
+                    File.WriteAllText(_profileService.CurrentFilePath, System.Text.Json.JsonSerializer.Serialize(defaultProfile, new System.Text.Json.JsonSerializerOptions{ WriteIndented = true }));
+                }
+                // Persist a pointer to the preferred file path for future runs
+                var pointerPath = System.IO.Path.Combine(AppDataFolder, "profiles.path");
+                File.WriteAllText(pointerPath, _profileService.CurrentFilePath ?? string.Empty);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Failed to initialize profiles file path: {Message}", ex.Message);
+            }
+
+            // Load profiles and bookmarks from the preferred path
             _ = InitializeProfilesAsync();
 
             this.Closing += MainWindow_Closing;
@@ -2201,6 +2250,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
             {
                 _isLoadingProfile = true; // Set flag during initialization
                 _profiles = await _profileService.LoadAllProfilesAsync();
+                SaveLocationPath = _profileService.CurrentFilePath;
+                OnPropertyChanged(nameof(SaveLocationPath));
 
                 // Load the first profile or create a default one
                 if (_profiles.Count > 0)
@@ -2388,6 +2439,19 @@ namespace Google_Bookmarks_Manager_for_GPOs
                     Properties.Settings.Default.Save();
 
                     await _profileService.SaveAllProfilesAsync(_profiles);
+                    SaveLocationPath = _profileService.CurrentFilePath;
+                    OnPropertyChanged(nameof(SaveLocationPath));
+
+                    // Write pointer file as an additional persistence mechanism
+                    try
+                    {
+                        var pointerPath = System.IO.Path.Combine(AppDataFolder, "profiles.path");
+                        File.WriteAllText(pointerPath, _profileService.CurrentFilePath ?? string.Empty);
+                    }
+                    catch (Exception ex2)
+                    {
+                        Log.Error("Failed to write profiles pointer file: {Message}", ex2.Message);
+                    }
                     CustomMessageBox.Show($"All profiles will now be saved to:\n{saveDialog.FileName}\n\nThis location will be used for ALL profiles.\nShare this file with your team for collaboration!\n\nAuto-save is enabled - all changes save automatically.\n\nThis location will be remembered when you restart the app.", "Save Location Changed", MessageBoxButton.OK);
                     Log.Information("Changed save location to: {Path}", saveDialog.FileName);
                 }
