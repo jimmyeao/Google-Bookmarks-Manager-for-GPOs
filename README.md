@@ -2,6 +2,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue)](#license)
 
 # Google Bookmarks Manager for GPOs
+<img width="1195" height="723" alt="image" src="https://github.com/user-attachments/assets/7d87b122-0cd2-49c4-b61e-901964b08250" />
 
 A simple, fast WPF app to edit and manage browser bookmarks for deployment via Intune or Group Policy (GPO) for Microsoft Edge and Google Chrome.
 
