@@ -88,6 +88,7 @@
                       SelectedItemChanged="BookmarksTreeView_SelectedItemChanged"
                       AllowDrop="True"
                       DragOver="BookmarksTreeView_DragOver"
+                      DragLeave="BookmarksTreeView_DragLeave"
                       Drop="BookmarksTreeView_Drop"
                       PreviewMouseRightButtonDown="BookmarksTreeView_PreviewMouseRightButtonDown"
                       PreviewMouseLeftButtonDown="BookmarksTreeView_PreviewMouseLeftButtonDown"

@@ -22,6 +22,7 @@ using Windows.UI.WebUI;
 using System.Reflection;
 using Google_Bookmarks_Manager_for_GPOs.Services;
 using Google_Bookmarks_Manager_for_GPOs.Models;
+using System.Text.RegularExpressions;
 
 namespace Google_Bookmarks_Manager_for_GPOs
 {
@@ -412,30 +413,94 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 _dragAdorner.UpdatePosition(position.X, position.Y);
             }
 
-            // Determine target item and show insertion feedback
-            var targetItem = GetNearestContainer(e.OriginalSource as DependencyObject);
-            RemoveInsertionAdorner();
-            if (targetItem != null)
-            {
-                var mousePos = e.GetPosition(targetItem);
-                var third = targetItem.ActualHeight / 3.0;
-                InsertionPosition pos = InsertionPosition.Inside;
-                if (mousePos.Y < third)
-                    pos = InsertionPosition.Above;
-                else if (mousePos.Y > targetItem.ActualHeight - third)
-                    pos = InsertionPosition.Below;
-                else
-                    pos = InsertionPosition.Inside;
+            bool isExternalUrl = TryExtractUrlAndTitle(e.Data, out _, out _);
 
-                _insertionAdorner = new InsertionAdorner(targetItem, pos);
-                var layer = AdornerLayer.GetAdornerLayer(targetItem);
-                layer?.Add(_insertionAdorner);
+            // Show insertion feedback only for internal drags
+            if (!isExternalUrl)
+            {
+                var targetItem = GetNearestContainer(e.OriginalSource as DependencyObject);
+                RemoveInsertionAdorner();
+                if (targetItem != null)
+                {
+                    var mousePos = e.GetPosition(targetItem);
+                    var third = targetItem.ActualHeight / 3.0;
+                    InsertionPosition pos = InsertionPosition.Inside;
+                    if (mousePos.Y < third)
+                        pos = InsertionPosition.Above;
+                    else if (mousePos.Y > targetItem.ActualHeight - third)
+                        pos = InsertionPosition.Below;
+                    else
+                        pos = InsertionPosition.Inside;
+
+                    _insertionAdorner = new InsertionAdorner(targetItem, pos);
+                    var layer = AdornerLayer.GetAdornerLayer(targetItem);
+                    layer?.Add(_insertionAdorner);
+                }
             }
+
+            // If dragging in an external URL, show copy effect and don't show internal move cues
+            if (isExternalUrl)
+                e.Effects = DragDropEffects.Copy;
             e.Handled = true;
         }
 
         private void BookmarksTreeView_Drop(object sender, DragEventArgs e)
         {
+            // Handle external URL drops
+            if (TryExtractUrlAndTitle(e.Data, out var droppedUrl, out var droppedTitle))
+            {
+                var extTargetContainer = GetNearestContainer(e.OriginalSource as DependencyObject);
+                var extTargetBookmark = extTargetContainer?.DataContext as Bookmark;
+
+                var name = !string.IsNullOrWhiteSpace(droppedTitle) ? droppedTitle : droppedUrl;
+                var newBookmark = new Bookmark
+                {
+                    Name = name,
+                    Url = NormalizeUrl(droppedUrl),
+                    IsFolder = false
+                };
+
+                if (extTargetBookmark != null)
+                {
+                    if (extTargetBookmark.IsFolder)
+                    {
+                        extTargetBookmark.Children.Add(newBookmark);
+                    }
+                    else
+                    {
+                        var parent = FindParentBookmark(Bookmarks, extTargetBookmark);
+                        if (parent != null)
+                        {
+                            var index = parent.Children.IndexOf(extTargetBookmark);
+                            var extMousePos = e.GetPosition(extTargetContainer);
+                            var extThird = extTargetContainer.ActualHeight / 3.0;
+                            bool extDropBelow = extMousePos.Y > (extTargetContainer.ActualHeight - extThird);
+                            if (extDropBelow) index++;
+                            parent.Children.Insert(index, newBookmark);
+                        }
+                        else
+                        {
+                            var index = Bookmarks.IndexOf(extTargetBookmark);
+                            var extMousePos = e.GetPosition(extTargetContainer);
+                            var extThird = extTargetContainer.ActualHeight / 3.0;
+                            bool extDropBelow = extMousePos.Y > (extTargetContainer.ActualHeight - extThird);
+                            if (extDropBelow) index++;
+                            Bookmarks.Insert(index, newBookmark);
+                        }
+                    }
+                }
+                else
+                {
+                    Bookmarks.Add(newBookmark);
+                }
+
+                OnPropertyChanged(nameof(Bookmarks));
+                AutoSaveCurrentProfile();
+                RemoveInsertionAdorner();
+                _draggedBookmark = null; // ensure internal drag state is cleared
+                return;
+            }
+
             if (_draggedBookmark == null) return;
 
             var targetContainer = GetNearestContainer(e.OriginalSource as DependencyObject);
@@ -500,6 +565,44 @@ namespace Google_Bookmarks_Manager_for_GPOs
             OnPropertyChanged(nameof(Bookmarks));
             AutoSaveCurrentProfile();
             RemoveInsertionAdorner();
+        }
+
+        private void BookmarksTreeView_DragLeave(object sender, DragEventArgs e)
+        {
+            RemoveInsertionAdorner();
+        }
+
+        private static string NormalizeUrl(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return url;
+            if (url.StartsWith("view-source:", StringComparison.OrdinalIgnoreCase))
+            {
+                url = url.Substring("view-source:".Length);
+            }
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            {
+                if (Uri.TryCreate("https://" + url, UriKind.Absolute, out var uri2))
+                    return uri2.ToString();
+                return url;
+            }
+            return uri.ToString();
+        }
+
+        private static string ExtractFirstUrl(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return null;
+            var m = Regex.Match(text, "https?://[^\\s<>\\\"]+", RegexOptions.IgnoreCase);
+            if (m.Success) return m.Value;
+            return null;
+        }
+
+        private static string GuessTitleFromText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return null;
+            var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length >= 2 && Regex.IsMatch(lines[1], @"https?://", RegexOptions.IgnoreCase))
+                return lines[0].Trim();
+            return null;
         }
 
         private void BookmarksTreeView_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -1112,6 +1215,195 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 return true;
             }
             selectedBookmark = null;
+            return false;
+        }
+
+        private static bool TryExtractUrlAndTitle(IDataObject data, out string url, out string title)
+        {
+            url = null;
+            title = null;
+
+            // 1) Unicode/Text
+            if (data.GetDataPresent(DataFormats.UnicodeText))
+            {
+                var txt = data.GetData(DataFormats.UnicodeText) as string;
+                if (!string.IsNullOrWhiteSpace(txt))
+                {
+                    txt = txt.Trim();
+                    // Some browsers copy "title\nurl" or add extra text. Extract first URL.
+                    var u = ExtractFirstUrl(txt);
+                    if (!string.IsNullOrEmpty(u) && Uri.TryCreate(u, UriKind.Absolute, out var uri))
+                    {
+                        url = uri.ToString();
+                        title = GuessTitleFromText(txt) ?? uri.Host;
+                        return true;
+                    }
+                }
+            }
+
+            if (data.GetDataPresent(DataFormats.Text))
+            {
+                var txt = data.GetData(DataFormats.Text) as string;
+                if (!string.IsNullOrWhiteSpace(txt))
+                {
+                    txt = txt.Trim();
+                    var u = ExtractFirstUrl(txt);
+                    if (!string.IsNullOrEmpty(u) && Uri.TryCreate(u, UriKind.Absolute, out var uri))
+                    {
+                        url = uri.ToString();
+                        title = GuessTitleFromText(txt) ?? uri.Host;
+                        return true;
+                    }
+                }
+            }
+
+            // 2) HTML format (anchor element)
+            if (data.GetDataPresent(DataFormats.Html))
+            {
+                var html = data.GetData(DataFormats.Html) as string;
+                if (!string.IsNullOrEmpty(html))
+                {
+                    try
+                    {
+                        // Check CF_HTML header for SourceURL
+                        var srcIdx = html.IndexOf("SourceURL:", StringComparison.OrdinalIgnoreCase);
+                        if (srcIdx >= 0)
+                        {
+                            var end = html.IndexOf('\n', srcIdx);
+                            if (end > srcIdx)
+                            {
+                                var srcUrl = html.Substring(srcIdx + 10, end - (srcIdx + 10)).Trim();
+                                if (Uri.TryCreate(srcUrl, UriKind.Absolute, out var srcUri))
+                                {
+                                    url = srcUri.ToString();
+                                    // Attempt to pull title from inner text
+                                }
+                            }
+                        }
+                        // very simple extraction of href and inner text
+                        var hrefIdx = html.IndexOf("href=\"", StringComparison.OrdinalIgnoreCase);
+                        if (hrefIdx >= 0)
+                        {
+                            hrefIdx += 6;
+                            var end = html.IndexOf('"', hrefIdx);
+                            if (end > hrefIdx)
+                            {
+                                var href = html.Substring(hrefIdx, end - hrefIdx);
+                                if (Uri.TryCreate(href, UriKind.Absolute, out var uri))
+                                {
+                                    url = uri.ToString();
+                                }
+                            }
+                        }
+
+                        // get title between > and </a>
+                        var gt = html.IndexOf('>');
+                        var lt = html.IndexOf("</a>", StringComparison.OrdinalIgnoreCase);
+                        if (gt >= 0 && lt > gt)
+                        {
+                            title = html.Substring(gt + 1, lt - gt - 1).Trim();
+                        }
+
+                        if (!string.IsNullOrEmpty(url))
+                            return true;
+                    }
+                    catch { }
+                }
+            }
+
+            // 3) UniformResourceLocatorW (Edge/Chrome address bar)
+            try
+            {
+                if (data.GetDataPresent("UniformResourceLocatorW"))
+                {
+                    var raw = data.GetData("UniformResourceLocatorW");
+                    if (raw is string s && Uri.TryCreate(s, UriKind.Absolute, out var uriS))
+                    {
+                        url = uriS.ToString();
+                        title = uriS.Host;
+                        return true;
+                    }
+                    else if (raw is System.IO.MemoryStream ms)
+                    {
+                        using var sr = new System.IO.StreamReader(ms, Encoding.Unicode, true, 1024, true);
+                        var s2 = sr.ReadToEnd().TrimEnd('\0');
+                        if (Uri.TryCreate(s2, UriKind.Absolute, out var uriMs))
+                        {
+                            url = uriMs.ToString();
+                            title = uriMs.Host;
+                            return true;
+                        }
+                    }
+                }
+                // ANSI variant
+                if (data.GetDataPresent("UniformResourceLocator"))
+                {
+                    var raw = data.GetData("UniformResourceLocator");
+                    if (raw is System.IO.MemoryStream msA)
+                    {
+                        using var sr = new System.IO.StreamReader(msA, Encoding.ASCII, true, 1024, true);
+                        var s2 = sr.ReadToEnd().TrimEnd('\0');
+                        if (Uri.TryCreate(s2, UriKind.Absolute, out var uriA))
+                        {
+                            url = uriA.ToString();
+                            title = uriA.Host;
+                            return true;
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            // 4) FileDrop for .url files
+            if (data.GetDataPresent(DataFormats.FileDrop))
+            {
+                var files = data.GetData(DataFormats.FileDrop) as string[];
+                var file = files?.FirstOrDefault();
+                if (!string.IsNullOrEmpty(file) && System.IO.Path.GetExtension(file).Equals(".url", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        var lines = System.IO.File.ReadAllLines(file);
+                        foreach (var line in lines)
+                        {
+                            if (line.StartsWith("URL=", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var u = line.Substring(4).Trim();
+                                if (Uri.TryCreate(u, UriKind.Absolute, out var uri))
+                                {
+                                    url = uri.ToString();
+                                    title = System.IO.Path.GetFileNameWithoutExtension(file);
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+
+            // 5) Firefox format: text/x-moz-url -> "url\nTitle"
+            try
+            {
+                if (data.GetDataPresent("text/x-moz-url"))
+                {
+                    var raw = data.GetData("text/x-moz-url") as string;
+                    if (!string.IsNullOrEmpty(raw))
+                    {
+                        var parts = raw.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                        var u = parts.ElementAtOrDefault(0);
+                        var t = parts.ElementAtOrDefault(1);
+                        if (!string.IsNullOrEmpty(u) && Uri.TryCreate(u, UriKind.Absolute, out var uri))
+                        {
+                            url = uri.ToString();
+                            title = string.IsNullOrWhiteSpace(t) ? uri.Host : t.Trim();
+                            return true;
+                        }
+                    }
+                }
+            }
+            catch { }
+
             return false;
         }
 
