@@ -65,39 +65,54 @@ namespace Google_Bookmarks_Manager_for_GPOs.Services
             var doc = XDocument.Parse($"<root>{xml}</root>");
             var items = new List<BookmarkItem>();
 
-            foreach (var dict in doc.Descendants("dict"))
+            // Find the first top-level array which contains the bookmark dictionaries
+            var rootArray = doc.Root?.Elements("array").FirstOrDefault();
+            if (rootArray == null)
+                return items;
+
+            // Only iterate immediate dict children of the root array (not all descendants)
+            foreach (var dict in rootArray.Elements("dict"))
             {
-                var item = new BookmarkItem();
-                var elements = dict.Elements().ToList();
-                for (int i = 0; i < elements.Count - 1; i++)
-                {
-                    if (elements[i].Name == "key")
-                    {
-                        var key = elements[i].Value;
-                        var valueElem = elements[i + 1];
-                        if (key == "toplevel_name") item.TopLevelName = valueElem.Value;
-                        else if (key == "name") item.Name = valueElem.Value;
-                        else if (key == "url") item.Url = valueElem.Value;
-                        else if (key == "children")
-                        {
-                            item.Children = new();
-                            foreach (var childDict in valueElem.Descendants("dict"))
-                            {
-                                item.Children.Add(new BookmarkItem
-                                {
-                                    Name = childDict.Elements()
-                                        .FirstOrDefault(e => e.PreviousNode is XElement p && ((XElement)p).Value == "name")?.Value,
-                                    Url = childDict.Elements()
-                                        .FirstOrDefault(e => e.PreviousNode is XElement p && ((XElement)p).Value == "url")?.Value
-                                });
-                            }
-                        }
-                    }
-                }
-                items.Add(item);
+                items.Add(ParseDict(dict));
             }
 
             return items;
+        }
+
+        private static BookmarkItem ParseDict(XElement dict)
+        {
+            var item = new BookmarkItem();
+            var elements = dict.Elements().ToList();
+            for (int i = 0; i < elements.Count; i++)
+            {
+                var el = elements[i];
+                if (el.Name != "key") continue;
+
+                var key = el.Value;
+                var valueElem = i + 1 < elements.Count ? elements[i + 1] : null;
+                if (valueElem == null) continue;
+
+                if (valueElem.Name == "string")
+                {
+                    var val = valueElem.Value;
+                    if (key == "toplevel_name") item.TopLevelName = val;
+                    else if (key == "name") item.Name = val;
+                    else if (key == "url") item.Url = val;
+                }
+                else if (key == "children" && valueElem.Name == "array")
+                {
+                    item.Children = new();
+                    foreach (var childDict in valueElem.Elements("dict"))
+                    {
+                        item.Children.Add(ParseDict(childDict));
+                    }
+                }
+
+                // Skip over the value element we just processed
+                i++;
+            }
+
+            return item;
         }
     }
 }
