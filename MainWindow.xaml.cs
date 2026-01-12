@@ -2575,6 +2575,25 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
+        private void SetClipboardTextWithRetry(string text, int maxRetries = 5)
+        {
+            for (int i = 0; i < maxRetries; i++)
+            {
+                try
+                {
+                    Clipboard.SetText(text);
+                    return; // Success
+                }
+                catch (System.Runtime.InteropServices.COMException ex) when (ex.HResult == unchecked((int)0x800401D0)) // CLIPBRD_E_CANT_OPEN
+                {
+                    if (i == maxRetries - 1)
+                        throw; // Rethrow on final attempt
+
+                    System.Threading.Thread.Sleep(50); // Wait 50ms before retry
+                }
+            }
+        }
+
         private async System.Threading.Tasks.Task ExportToClipboardAsJsonAsync(string policyKey)
         {
             try
@@ -2603,7 +2622,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 var json = await File.ReadAllTextAsync(tempFile);
                 File.Delete(tempFile);
 
-                Clipboard.SetText(json);
+                SetClipboardTextWithRetry(json);
 
                 string browserName = policyKey == "ManagedFavorites" ? "Microsoft Edge" : "Google Chrome";
                 CustomMessageBox.Show($"Bookmarks exported to clipboard as JSON for {browserName} on Windows!\n\nPolicy Key: {policyKey}", "Success", MessageBoxButton.OK);
@@ -2638,7 +2657,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 var plist = await File.ReadAllTextAsync(tempFile);
                 File.Delete(tempFile);
 
-                Clipboard.SetText(plist);
+                SetClipboardTextWithRetry(plist);
 
                 string browserName = keyName == "ManagedFavorites" ? "Microsoft Edge" : "Google Chrome";
                 string barStatus = enableBar ? "enabled" : "disabled";

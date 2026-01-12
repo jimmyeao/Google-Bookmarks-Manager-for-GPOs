@@ -42,14 +42,17 @@ namespace Google_Bookmarks_Manager_for_GPOs.Services
             writer.WriteLine("<plist version=\"1.0\">");
             writer.WriteLine("<dict>");
 
-            // Policy control key based on browser
-            if (keyName == "ManagedFavorites")
+            // Policy control key based on browser (only write if enabled)
+            if (enableBar)
             {
-                WriteBooleanKey(writer, "FavoritesBarEnabled", enableBar);
-            }
-            else if (keyName == "ManagedBookmarks")
-            {
-                WriteBooleanKey(writer, "BookmarkBarEnabled", enableBar);
+                if (keyName == "ManagedFavorites")
+                {
+                    WriteBooleanKey(writer, "FavoritesBarEnabled", enableBar);
+                }
+                else if (keyName == "ManagedBookmarks")
+                {
+                    WriteBooleanKey(writer, "BookmarkBarEnabled", enableBar);
+                }
             }
 
             // Bookmarks array
