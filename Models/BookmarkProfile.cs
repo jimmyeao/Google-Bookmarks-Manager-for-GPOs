@@ -20,5 +20,11 @@ namespace Google_Bookmarks_Manager_for_GPOs.Models
 
         [JsonPropertyName("id")]
         public string Id { get; set; } = Guid.NewGuid().ToString();
+
+        [JsonPropertyName("favoritesBarEnabled")]
+        public bool FavoritesBarEnabled { get; set; } = true;
+
+        [JsonPropertyName("bookmarkBarEnabled")]
+        public bool BookmarkBarEnabled { get; set; } = true;
     }
 }

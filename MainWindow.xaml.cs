@@ -779,6 +779,28 @@ namespace Google_Bookmarks_Manager_for_GPOs
             SaveThemePreference(false);
         }
 
+        private void FavoritesBarEnabled_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_currentProfile != null && !_isLoadingProfile)
+            {
+                _currentProfile.FavoritesBarEnabled = favoritesBarEnabledCheckBox.IsChecked ?? true;
+                _ = _profileService.UpdateProfileAsync(_currentProfile, _profiles);
+                Log.Information("Updated FavoritesBarEnabled to {Value} for profile '{Name}'",
+                    _currentProfile.FavoritesBarEnabled, _currentProfile.Name);
+            }
+        }
+
+        private void BookmarkBarEnabled_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_currentProfile != null && !_isLoadingProfile)
+            {
+                _currentProfile.BookmarkBarEnabled = bookmarkBarEnabledCheckBox.IsChecked ?? true;
+                _ = _profileService.UpdateProfileAsync(_currentProfile, _profiles);
+                Log.Information("Updated BookmarkBarEnabled to {Value} for profile '{Name}'",
+                    _currentProfile.BookmarkBarEnabled, _currentProfile.Name);
+            }
+        }
+
         private void clearFormButton_Click(object sender, RoutedEventArgs e)
         {
             // Confirm destructive action
@@ -2299,13 +2321,20 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 }
 
                 TopLevelFolderName = profile.TopLevelFolderName;
+
+                // Load checkbox states from profile
+                favoritesBarEnabledCheckBox.IsChecked = profile.FavoritesBarEnabled;
+                bookmarkBarEnabledCheckBox.IsChecked = profile.BookmarkBarEnabled;
+
                 _currentProfile = profile; // Set current profile after loading data
                 UpdateOriginalBookmarks();
 
                 // Clear any active search to avoid mixing views with previous profile
                 SearchQuery = string.Empty;
 
-                Log.Information("Loaded profile: {Name} with {Count} bookmarks", profile.Name, profile.Bookmarks?.Count ?? 0);
+                Log.Information("Loaded profile: {Name} with {Count} bookmarks, FavoritesBar={FavBar}, BookmarkBar={BmBar}",
+                    profile.Name, profile.Bookmarks?.Count ?? 0,
+                    profile.FavoritesBarEnabled, profile.BookmarkBarEnabled);
 
                 _isLoadingProfile = false; // Clear flag after load is complete
             }
@@ -2596,8 +2625,15 @@ namespace Google_Bookmarks_Manager_for_GPOs
                     TopLevelFolderName ?? "Managed Bookmarks"
                 );
 
+                // Determine which boolean value to use based on keyName
+                bool enableBar = keyName == "ManagedFavorites"
+                    ? (_currentProfile?.FavoritesBarEnabled ?? true)
+                    : (_currentProfile?.BookmarkBarEnabled ?? true);
+
                 var tempFile = Path.GetTempFileName();
-                PlistBookmarkService.SaveToPlist(tempFile, keyName, bookmarkItems);
+
+                // Use complete PLIST generator with boolean parameter
+                PlistBookmarkService.SaveToCompletePlist(tempFile, keyName, bookmarkItems, enableBar);
 
                 var plist = await File.ReadAllTextAsync(tempFile);
                 File.Delete(tempFile);
@@ -2605,8 +2641,18 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 Clipboard.SetText(plist);
 
                 string browserName = keyName == "ManagedFavorites" ? "Microsoft Edge" : "Google Chrome";
-                CustomMessageBox.Show($"Bookmarks exported to clipboard as PLIST for {browserName} on macOS!\n\nPolicy Key: {keyName}\n\nReady to paste into Intune Configuration Profile.", "Success", MessageBoxButton.OK);
-                Log.Information("Exported bookmarks as PLIST for {Browser} on macOS", browserName);
+                string barStatus = enableBar ? "enabled" : "disabled";
+
+                CustomMessageBox.Show(
+                    $"Bookmarks exported to clipboard as PLIST for {browserName} on macOS!\n\n" +
+                    $"Policy Key: {keyName}\n" +
+                    $"Favorites/Bookmark Bar: {barStatus}\n\n" +
+                    $"Ready to paste into Intune Configuration Profile.",
+                    "Success",
+                    MessageBoxButton.OK);
+
+                Log.Information("Exported bookmarks as PLIST for {Browser} on macOS with bar {Status}",
+                    browserName, barStatus);
             }
             catch (Exception ex)
             {

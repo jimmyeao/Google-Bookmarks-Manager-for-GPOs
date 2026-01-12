@@ -28,6 +28,53 @@ namespace Google_Bookmarks_Manager_for_GPOs.Services
             writer.WriteLine("</array>");
         }
 
+        public static void SaveToCompletePlist(string filePath, string keyName, List<BookmarkItem> bookmarks, bool enableBar)
+        {
+            using var writer = new StreamWriter(filePath, false, Encoding.UTF8);
+
+            // XML declaration
+            writer.WriteLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+
+            // DOCTYPE
+            writer.WriteLine("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
+
+            // Root plist element
+            writer.WriteLine("<plist version=\"1.0\">");
+            writer.WriteLine("<dict>");
+
+            // Policy control key based on browser
+            if (keyName == "ManagedFavorites")
+            {
+                WriteBooleanKey(writer, "FavoritesBarEnabled", enableBar);
+            }
+            else if (keyName == "ManagedBookmarks")
+            {
+                WriteBooleanKey(writer, "BookmarkBarEnabled", enableBar);
+            }
+
+            // Bookmarks array
+            writer.WriteLine($"  <key>{keyName}</key>");
+            writer.WriteLine("  <array>");
+            foreach (var item in bookmarks)
+            {
+                writer.WriteLine("    <dict>");
+                WriteDict(writer, item, 3);  // Indent level 3 (inside array, inside dict)
+                writer.WriteLine("    </dict>");
+            }
+            writer.WriteLine("  </array>");
+
+            // Close dict and plist
+            writer.WriteLine("</dict>");
+            writer.WriteLine("</plist>");
+        }
+
+        private static void WriteBooleanKey(StreamWriter writer, string key, bool value, int indent = 1)
+        {
+            string pad = new(' ', indent * 2);
+            writer.WriteLine($"{pad}<key>{key}</key>");
+            writer.WriteLine($"{pad}{(value ? "<true/>" : "<false/>")}");
+        }
+
         private static void WriteDict(StreamWriter writer, BookmarkItem item, int indent)
         {
             string pad = new(' ', indent * 2);

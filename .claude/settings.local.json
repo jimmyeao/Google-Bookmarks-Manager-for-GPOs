@@ -7,7 +7,8 @@
       "Bash(cmd /c dir /b /s Services)",
       "Bash(cmd /c \"if exist Models (dir /b Models)\")",
       "Bash(cmd /c \"if exist Services (dir /b Services)\")",
-      "Bash(dotnet build \"Google Bookmarks Manager for GPOs.csproj\")"
+      "Bash(dotnet build \"Google Bookmarks Manager for GPOs.csproj\")",
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": []

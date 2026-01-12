@@ -230,6 +230,26 @@
                                FontSize="14"
                                HorizontalAlignment="Center"
                                Margin="0,0,0,10"/>
+                    <!-- Checkbox controls for PLIST exports -->
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                Margin="0,0,0,10">
+                        <CheckBox x:Name="favoritesBarEnabledCheckBox"
+                                  Content="Edge Favorites Bar"
+                                  IsChecked="True"
+                                  Checked="FavoritesBarEnabled_Changed"
+                                  Unchecked="FavoritesBarEnabled_Changed"
+                                  Margin="0,0,15,0"
+                                  ToolTip="Show favorites bar for Edge on macOS (PLIST exports only)"
+                                  Style="{DynamicResource MaterialDesignCheckBox}" />
+                        <CheckBox x:Name="bookmarkBarEnabledCheckBox"
+                                  Content="Chrome Bookmark Bar"
+                                  IsChecked="True"
+                                  Checked="BookmarkBarEnabled_Changed"
+                                  Unchecked="BookmarkBarEnabled_Changed"
+                                  ToolTip="Show bookmark bar for Chrome on macOS (PLIST exports only)"
+                                  Style="{DynamicResource MaterialDesignCheckBox}" />
+                    </StackPanel>
                     <Grid HorizontalAlignment="Center">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
