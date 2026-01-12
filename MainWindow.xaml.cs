@@ -61,6 +61,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private bool _isLoadingProfile = false; // Flag to prevent saves during profile load
         public string SaveLocationPath { get; set; }
 
+        private readonly Random _retryRandom = new Random();
+
         #endregion Fields
 
         #region Constructors
@@ -2089,26 +2091,6 @@ namespace Google_Bookmarks_Manager_for_GPOs
             Properties.Settings.Default.Save(); // Persist setting
         }
 
-        private void SetClipboardTextWithRetry(string text)
-        {
-            int retryCount = 5;
-            while (retryCount > 0)
-            {
-                try
-                {
-                    Clipboard.SetText(text);
-                    return;
-                }
-                catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException)
-                {
-                    retryCount--;
-                    System.Threading.Thread.Sleep(100); // Wait 100 ms before retrying
-                }
-            }
-
-            throw new Exception("Failed to set clipboard text after multiple attempts.");
-        }
-
         private void ShowEmptySpaceContextMenu()
         {
             ContextMenu contextMenu = new ContextMenu();
@@ -2575,23 +2557,68 @@ namespace Google_Bookmarks_Manager_for_GPOs
             }
         }
 
-        private void SetClipboardTextWithRetry(string text, int maxRetries = 5)
+        private async System.Threading.Tasks.Task SetClipboardTextWithRetryAsync(string text)
         {
-            for (int i = 0; i < maxRetries; i++)
+            const int maxRetries = 30;
+            Exception lastException = null;
+
+            for (int attempt = 0; attempt < maxRetries; attempt++)
             {
                 try
                 {
-                    Clipboard.SetText(text);
+                    // Use async dispatcher to avoid blocking the UI thread
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        Clipboard.SetText(text);
+                        Clipboard.Flush();
+                    }, System.Windows.Threading.DispatcherPriority.Send);
+
+                    Log.Information("Successfully copied text to clipboard on attempt {Attempt}", attempt + 1);
                     return; // Success
                 }
-                catch (System.Runtime.InteropServices.COMException ex) when (ex.HResult == unchecked((int)0x800401D0)) // CLIPBRD_E_CANT_OPEN
+                catch (System.Runtime.InteropServices.COMException ex) when (ex.HResult == unchecked((int)0x800401D0))
                 {
-                    if (i == maxRetries - 1)
-                        throw; // Rethrow on final attempt
+                    lastException = ex;
 
-                    System.Threading.Thread.Sleep(50); // Wait 50ms before retry
+                    int baseDelay = Math.Min(100 + (attempt * 25), 1000);
+                    int jitter = _retryRandom.Next(-25, 25);
+                    int delay = Math.Max(50, baseDelay + jitter);
+
+                    Log.Debug("Clipboard locked (attempt {Attempt}/{MaxRetries}), waiting {Delay}ms",
+                        attempt + 1, maxRetries, delay);
+
+                    await System.Threading.Tasks.Task.Delay(delay);
+                }
+                catch (System.Runtime.InteropServices.COMException ex)
+                {
+                    Log.Warning("COM error on attempt {Attempt}: 0x{HResult:X} - {Message}",
+                        attempt + 1, ex.HResult, ex.Message);
+                    lastException = ex;
+                    await System.Threading.Tasks.Task.Delay(200);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning("Unexpected clipboard error on attempt {Attempt}: {Type} - {Message}",
+                        attempt + 1, ex.GetType().Name, ex.Message);
+                    lastException = ex;
+                    await System.Threading.Tasks.Task.Delay(150);
                 }
             }
+
+            Log.Error("Failed to access clipboard after {Attempts} attempts. Last error: {Error}",
+                maxRetries, lastException?.Message);
+
+            throw new InvalidOperationException(
+                $"Unable to copy to clipboard after {maxRetries} attempts over ~{maxRetries * 200 / 1000} seconds.\n\n" +
+                "The clipboard is being persistently locked by another application.\n\n" +
+                "Common causes:\n" +
+                "• Clipboard managers (Ditto, ClipX, CopyQ, etc.)\n" +
+                "• Remote desktop with clipboard redirection enabled\n" +
+                "• Screen sharing (Teams, Zoom, Webex)\n" +
+                "• Antivirus clipboard scanning\n" +
+                "• Cloud sync clipboard features (OneDrive, Dropbox)\n\n" +
+                "Please close clipboard monitoring applications and try again.",
+                lastException);
         }
 
         private async System.Threading.Tasks.Task ExportToClipboardAsJsonAsync(string policyKey)
@@ -2622,7 +2649,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 var json = await File.ReadAllTextAsync(tempFile);
                 File.Delete(tempFile);
 
-                SetClipboardTextWithRetry(json);
+                await SetClipboardTextWithRetryAsync(json);
 
                 string browserName = policyKey == "ManagedFavorites" ? "Microsoft Edge" : "Google Chrome";
                 CustomMessageBox.Show($"Bookmarks exported to clipboard as JSON for {browserName} on Windows!\n\nPolicy Key: {policyKey}", "Success", MessageBoxButton.OK);
@@ -2657,7 +2684,7 @@ namespace Google_Bookmarks_Manager_for_GPOs
                 var plist = await File.ReadAllTextAsync(tempFile);
                 File.Delete(tempFile);
 
-                SetClipboardTextWithRetry(plist);
+                await SetClipboardTextWithRetryAsync(plist);
 
                 string browserName = keyName == "ManagedFavorites" ? "Microsoft Edge" : "Google Chrome";
                 string barStatus = enableBar ? "enabled" : "disabled";

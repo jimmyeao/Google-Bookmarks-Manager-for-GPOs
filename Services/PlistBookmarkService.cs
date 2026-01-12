@@ -117,20 +117,75 @@ namespace Google_Bookmarks_Manager_for_GPOs.Services
 
             var xml = File.ReadAllText(filePath);
             XDocument doc;
+
+            // Check if it's a complete PLIST document or a fragment
+            bool isCompletePlist = xml.TrimStart().StartsWith("<?xml") || xml.Contains("<plist");
+
             try
             {
-                doc = XDocument.Parse($"<root>{xml}</root>");
+                if (isCompletePlist)
+                {
+                    // Parse as complete XML document
+                    doc = XDocument.Parse(xml);
+                }
+                else
+                {
+                    // Parse as fragment (wrap in root element)
+                    doc = XDocument.Parse($"<root>{xml}</root>");
+                }
             }
             catch
             {
                 // Attempt to sanitize invalid XML (common: unescaped & in URLs)
                 var sanitized = SanitizeXmlFragment(xml);
-                doc = XDocument.Parse($"<root>{sanitized}</root>");
+                if (isCompletePlist)
+                {
+                    doc = XDocument.Parse(sanitized);
+                }
+                else
+                {
+                    doc = XDocument.Parse($"<root>{sanitized}</root>");
+                }
             }
-            var items = new List<BookmarkItem>();
 
-            // Find the first top-level array which contains the bookmark dictionaries
-            var rootArray = doc.Root?.Elements("array").FirstOrDefault();
+            var items = new List<BookmarkItem>();
+            XElement rootArray = null;
+
+            if (isCompletePlist)
+            {
+                // Navigate: <plist><dict><key>ManagedBookmarks/ManagedFavorites</key><array>...
+                var plistElement = doc.Root?.Name.LocalName == "plist" ? doc.Root : doc.Descendants("plist").FirstOrDefault();
+                if (plistElement != null)
+                {
+                    var dictElement = plistElement.Element("dict");
+                    if (dictElement != null)
+                    {
+                        // Find the array that comes after a key element
+                        // Look for keys like "ManagedBookmarks" or "ManagedFavorites"
+                        var elements = dictElement.Elements().ToList();
+                        for (int i = 0; i < elements.Count - 1; i++)
+                        {
+                            if (elements[i].Name == "key")
+                            {
+                                var keyValue = elements[i].Value;
+                                // Check if this is a bookmark policy key (not a boolean setting key)
+                                if ((keyValue == "ManagedBookmarks" || keyValue == "ManagedFavorites") &&
+                                    elements[i + 1].Name == "array")
+                                {
+                                    rootArray = elements[i + 1];
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Fragment format: Find the first top-level array
+                rootArray = doc.Root?.Elements("array").FirstOrDefault();
+            }
+
             if (rootArray == null)
                 return items;
 
