@@ -138,6 +138,9 @@
                         <MenuItem Header="Sort Alphabetically" Click="SortAlphabetically_Click" CommandParameter="{Binding}" />
                         <MenuItem Header="Add Nested Bookmark" Click="AddNestedBookmark_Click" CommandParameter="{Binding}" />
                         <Separator />
+                        <MenuItem Header="Copy" Click="CopyBookmark_Click" CommandParameter="{Binding}" />
+                        <MenuItem Header="Paste" Click="PasteBookmark_Click" CommandParameter="{Binding}" />
+                        <Separator />
                         <MenuItem Header="Delete" Click="DeleteBookmark_Click" CommandParameter="{Binding}" />
                     </ContextMenu>
                 </TreeView.Resources>

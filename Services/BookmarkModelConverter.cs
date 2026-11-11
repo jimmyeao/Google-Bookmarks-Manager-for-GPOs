@@ -19,7 +19,7 @@ namespace Google_Bookmarks_Manager_for_GPOs.Services
             {
                 Name = item.Name ?? item.TopLevelName ?? "Unnamed",
                 Url = item.Url ?? string.Empty,
-                IsFolder = item.Children != null && item.Children.Count > 0,
+                IsFolder = item.Children != null,
                 IsRootFolder = !string.IsNullOrEmpty(item.TopLevelName),
                 Children = new ObservableCollection<Bookmark>()
             };
@@ -54,7 +54,7 @@ namespace Google_Bookmarks_Manager_for_GPOs.Services
             }
 
             // Handle children
-            if (bookmark.Children != null && bookmark.Children.Count > 0)
+            if (bookmark.IsFolder || bookmark.Children.Count > 0)
             {
                 item.Children = bookmark.Children.Select(c => ToBookmarkItem(c)).ToList();
             }
