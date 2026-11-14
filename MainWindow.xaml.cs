@@ -59,6 +59,8 @@ namespace Google_Bookmarks_Manager_for_GPOs
         private List<BookmarkProfile> _profiles;
         private BookmarkProfile _currentProfile;
         private Bookmark _copiedBookmark;
+        private ObservableCollection<Bookmark>? _copiedBookmarks;
+        private string? _copiedFromProfileId;
         private bool _isLoadingProfile = false; // Flag to prevent saves during profile load
         public string SaveLocationPath { get; set; }
 
@@ -1100,6 +1102,60 @@ namespace Google_Bookmarks_Manager_for_GPOs
             {
                 _copiedBookmark = DeepCopyBookmarks(new ObservableCollection<Bookmark> { selected }).FirstOrDefault();
             }
+        }
+
+        private void CopyAllBookmarks_Click(object sender, RoutedEventArgs e)
+        {
+            _copiedBookmarks = DeepCopyBookmarks(_originalBookmarks ?? Bookmarks);
+            _copiedFromProfileId = _currentProfile?.Id;
+
+            CustomMessageBox.Show(
+                $"Copied {_copiedBookmarks.Count} top-level bookmark items from " +
+                $"'{_currentProfile?.Name ?? "the current profile"}'. Switch profiles, then choose Paste Bookmarks.",
+                "Bookmarks Copied",
+                MessageBoxButton.OK);
+        }
+
+        private async void PasteAllBookmarks_Click(object sender, RoutedEventArgs e)
+        {
+            if (_copiedBookmarks == null)
+            {
+                CustomMessageBox.Show("Copy bookmarks from a profile before pasting.", "Nothing to Paste", MessageBoxButton.OK);
+                return;
+            }
+
+            var targetName = _currentProfile?.Name ?? "the current profile";
+            var result = CustomMessageBox.Show(
+                $"Append {_copiedBookmarks.Count} top-level items to '{targetName}'? Existing bookmarks will be kept.",
+                "Confirm Paste",
+                MessageBoxButton.OKCancel);
+
+            if (result != MessageBoxResult.OK)
+                return;
+
+            _originalBookmarks ??= DeepCopyBookmarks(Bookmarks);
+
+            foreach (var bookmark in DeepCopyBookmarks(_copiedBookmarks))
+                _originalBookmarks.Add(bookmark);
+
+            if (string.IsNullOrWhiteSpace(SearchQuery))
+                Bookmarks = DeepCopyBookmarks(_originalBookmarks);
+            else
+                FilterBookmarks();
+
+            OnPropertyChanged(nameof(Bookmarks));
+
+            if (_currentProfile != null && _profiles != null)
+            {
+                _currentProfile.Bookmarks = BookmarkModelConverter.ToBookmarkItemList(_originalBookmarks);
+                _currentProfile.TopLevelFolderName = TopLevelFolderName ?? "Managed Bookmarks";
+                await _profileService.UpdateProfileAsync(_currentProfile, _profiles);
+            }
+
+            CustomMessageBox.Show(
+                "The copied bookmarks and folders were added to this profile.",
+                "Paste Complete",
+                MessageBoxButton.OK);
         }
 
         private async void PasteBookmark_Click(object sender, RoutedEventArgs e)

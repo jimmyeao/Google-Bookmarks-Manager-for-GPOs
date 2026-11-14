@@ -87,7 +87,7 @@
                               Style="{DynamicResource MaterialDesignCheckBox}" />
                 </StackPanel>
 
-                <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal">
+                <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal">
                     <TextBlock Text="Top-Level Folder Name:"
                                FontWeight="Bold"
                                VerticalAlignment="Center"
@@ -96,10 +96,20 @@
                              Text="{Binding TopLevelFolderName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              Style="{DynamicResource MaterialDesignTextBox}"
                              Width="300"/>
+                    <Button Content="Copy All Bookmarks"
+                            Click="CopyAllBookmarks_Click"
+                            Margin="12,0,5,0"
+                            ToolTip="Copy this profile's complete bookmark tree"
+                            Style="{DynamicResource MaterialDesignRaisedButton}" />
+                    <Button Content="Paste Bookmarks"
+                            Click="PasteAllBookmarks_Click"
+                            Margin="5,0"
+                            ToolTip="Append copied bookmarks to this profile"
+                            Style="{DynamicResource MaterialDesignRaisedButton}" />
                 </StackPanel>
 
                 <!-- Right side: Import / Clear buttons -->
-                <StackPanel Grid.RowSpan="2" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button Content="Import Bookmarks"
                             Click="importFromClipboard_Click"
                             Width="180"
