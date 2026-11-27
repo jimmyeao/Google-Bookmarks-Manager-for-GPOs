@@ -67,7 +67,11 @@ jobs:
             rust-app/src-tauri/tauri.conf.json rust-app/package.json
           git commit -m "Release v$v [skip ci]"
           git tag "v$v"
-          git push origin HEAD:master
+          # GITHUB_TOKEN can't bypass "changes via PR" protection on master;
+          # pushing the tag alone is enough — it carries the bump commit, and
+          # the build jobs check it out by sha. (master then lags the released
+          # version until someone merges a bump commit or relaxes the rule.)
+          git push origin HEAD:master || echo "::warning::master push blocked by branch protection; releasing from tag only"
           git push origin "v$v"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "version=$v" >> "$GITHUB_OUTPUT"
