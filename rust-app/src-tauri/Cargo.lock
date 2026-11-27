@@ -376,7 +376,7 @@ dependencies = [
 
 [[package]]
 name = "bookmark-manager"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "arboard",
  "chrono",
