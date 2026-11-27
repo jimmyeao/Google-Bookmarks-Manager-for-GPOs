@@ -84,6 +84,11 @@ jobs:
           - platform: windows-latest
             args: ""
     runs-on: ${{ matrix.platform }}
+    # Secrets can't be referenced in step-level `if:` — evaluate them here
+    # once. Missing installer cert leaves the .pkg built but unsigned.
+    env:
+      HAS_INSTALLER_CERT: ${{ secrets.APPLE_INSTALLER_CERTIFICATE != '' && secrets.APPLE_INSTALLER_SIGNING_IDENTITY != '' }}
+      HAS_NOTARY: ${{ secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -137,12 +142,96 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: npx tauri build ${{ matrix.args }}
 
+      # A "Developer ID Installer" certificate (separate from the app's
+      # "Developer ID Application" one) signs the .pkg for Intune/MDM
+      # deployment. Without it the package is still built, unsigned; the
+      # app inside stays signed and notarized either way.
+      - name: Import installer signing certificate
+        if: runner.os == 'macOS' && env.HAS_INSTALLER_CERT == 'true'
+        working-directory: rust-app
+        env:
+          APPLE_INSTALLER_CERTIFICATE: ${{ secrets.APPLE_INSTALLER_CERTIFICATE }}
+          APPLE_INSTALLER_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_INSTALLER_CERTIFICATE_PASSWORD }}
+        run: |
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          echo "$APPLE_INSTALLER_CERTIFICATE" | base64 --decode > installer.p12
+          security import installer.p12 -k build.keychain \
+            -P "$APPLE_INSTALLER_CERTIFICATE_PASSWORD" -T /usr/bin/productbuild -T /usr/bin/productsign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+          rm installer.p12
+          # G2 Developer ID certs only validate with Apple's G2 intermediate
+          # in the chain; runners don't reliably carry it.
+          curl -fsSL -o DeveloperIDG2CA.cer https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
+          security import DeveloperIDG2CA.cer -k build.keychain || true
+          rm DeveloperIDG2CA.cer
+          security find-identity -v build.keychain
+
+      # The installer: always to /Applications (not relocatable, so it never
+      # "upgrades" a stray copy elsewhere instead), preinstall quits the app
+      # and removes the old bundle so upgrades are clean.
+      - name: Build installer package
+        if: runner.os == 'macOS'
+        working-directory: rust-app
+        env:
+          APPLE_INSTALLER_SIGNING_IDENTITY: ${{ secrets.APPLE_INSTALLER_SIGNING_IDENTITY }}
+        run: |
+          set -e
+          V="${{ steps.version.outputs.version }}"
+          APP=$(find src-tauri/target -path '*/release/bundle/macos/*.app' | head -1)
+          echo "Packaging $APP"
+          mkdir -p pkgroot
+          ditto "$APP" "pkgroot/$(basename "$APP")"
+          chmod 755 installer/macos/scripts/preinstall
+          pkgbuild --analyze --root pkgroot component.plist
+          plutil -replace 0.BundleIsRelocatable -bool NO component.plist
+          plutil -replace 0.BundleOverwriteAction -string upgrade component.plist
+          pkgbuild --root pkgroot --component-plist component.plist \
+            --identifier com.bookmarkmanager.gpo --version "$V" \
+            --install-location /Applications \
+            --scripts installer/macos/scripts \
+            BookmarkManager-component.pkg
+          sed "s/__VERSION__/$V/" installer/macos/distribution.xml > distribution.xml
+          if [ "$HAS_INSTALLER_CERT" = "true" ]; then
+            productbuild --distribution distribution.xml --package-path . \
+              --sign "$APPLE_INSTALLER_SIGNING_IDENTITY" --timestamp \
+              "Bookmark-Manager-macOS-$V.pkg"
+            pkgutil --check-signature "Bookmark-Manager-macOS-$V.pkg"
+          else
+            productbuild --distribution distribution.xml --package-path . \
+              "Bookmark-Manager-macOS-$V.pkg"
+          fi
+          rm BookmarkManager-component.pkg
+
+      - name: Notarize and staple installer
+        if: runner.os == 'macOS' && env.HAS_INSTALLER_CERT == 'true' && env.HAS_NOTARY == 'true'
+        working-directory: rust-app
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          P="Bookmark-Manager-macOS-${{ steps.version.outputs.version }}.pkg"
+          xcrun notarytool submit "$P" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$P"
+          xcrun stapler validate "$P"
+
+      - name: Remove signing keychain
+        if: runner.os == 'macOS' && always() && env.HAS_INSTALLER_CERT == 'true'
+        run: security delete-keychain build.keychain || true
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: Bookmark-Manager-${{ runner.os }}-${{ steps.version.outputs.version }}
           retention-days: 3
           path: |
+            rust-app/Bookmark-Manager-macOS-*.pkg
             rust-app/src-tauri/target/**/release/bundle/dmg/*.dmg
             rust-app/src-tauri/target/**/release/bundle/msi/*.msi
             rust-app/src-tauri/target/**/release/bundle/nsis/*.exe
@@ -152,6 +241,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
+            rust-app/Bookmark-Manager-macOS-*.pkg
             rust-app/src-tauri/target/**/release/bundle/dmg/*.dmg
             rust-app/src-tauri/target/**/release/bundle/msi/*.msi
             rust-app/src-tauri/target/**/release/bundle/nsis/*.exe

@@ -1,0 +1,20 @@
+#!/bin/sh
+# Runs as root before the new Bookmark Manager.app is laid down.
+# - Quit a running Bookmark Manager so the bundle can be replaced cleanly.
+# - Remove the old bundle: a package install merges files, so anything an
+#   older version shipped that this one doesn't would otherwise linger.
+# Profiles live in ~/Library/Application Support/GoogleBookmarksManager
+# and are left alone.
+
+APP="/Applications/Bookmark Manager.app"
+
+pkill -f "Bookmark Manager.app/Contents/MacOS/bookmark-manager" 2>/dev/null
+sleep 1
+
+if [ -d "$APP" ]; then
+    id=$(/usr/bin/defaults read "$APP/Contents/Info" CFBundleIdentifier 2>/dev/null)
+    if [ "$id" = "com.bookmarkmanager.gpo" ]; then
+        rm -rf "$APP"
+    fi
+fi
+exit 0

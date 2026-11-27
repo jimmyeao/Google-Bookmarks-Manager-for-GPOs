@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- productbuild distribution for the Bookmark Manager installer.
+     __VERSION__ is filled in by the release workflow. hostArchitectures
+     lists both so Apple-silicon Macs don't get asked to install Rosetta
+     (the app is universal). -->
+<installer-gui-script minSpecVersion="2">
+    <title>Bookmark Manager</title>
+    <options customize="never" require-scripts="false" hostArchitectures="x86_64,arm64"/>
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+    <volume-check>
+        <allowed-os-versions>
+            <os-version min="10.15"/>
+        </allowed-os-versions>
+    </volume-check>
+    <choices-outline>
+        <line choice="default">
+            <line choice="com.bookmarkmanager.gpo"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="com.bookmarkmanager.gpo" visible="false">
+        <pkg-ref id="com.bookmarkmanager.gpo"/>
+    </choice>
+    <pkg-ref id="com.bookmarkmanager.gpo" version="__VERSION__" onConclusion="none">BookmarkManager-component.pkg</pkg-ref>
+</installer-gui-script>
