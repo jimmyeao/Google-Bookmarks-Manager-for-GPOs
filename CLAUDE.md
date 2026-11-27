@@ -327,3 +327,5 @@ cargo test --manifest-path src-tauri/Cargo.toml   # backend unit tests
 - **Frontend** (`src/`): dependency-free HTML/CSS/JS. Single canonical tree mutated by node id; search renders a filtered projection (avoids the WPF dual-tree equivalence-matching bugs).
 - **Data compatibility**: reads/writes the same `%AppData%/GoogleBookmarksManager/profiles.json` (Windows) — on macOS it uses `~/Library/Application Support/GoogleBookmarksManager/profiles.json`. Same JSON schema as the C# app, so profiles are interchangeable.
 - Edge export nuance: `"toplevel": true` is only added when the first array entry is actually the `toplevel_name` metadata entry.
+- `src-tauri/icons/icon.png` must be RGBA (8-bit/color) — colormap/grayscale PNGs make `tauri::generate_context!()` panic at compile time. Convert with `sips -s format png icon.png --out icon.png`.
+- macOS DMG bundling can intermittently fail with `Finder got an error: AppleEvent timed out (-1712)` (create-dmg drives Finder via AppleScript); retry the build or use `npx tauri build --bundles app`.
