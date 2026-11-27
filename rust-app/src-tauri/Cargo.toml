@@ -1,0 +1,25 @@
+[package]
+name = "bookmark-manager"
+version = "1.2.0"
+description = "Bookmark Manager for Intune/GPO"
+edition = "2021"
+rust-version = "1.77"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+roxmltree = "0.20"
+regex = "1"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+arboard = "3"
+rfd = "0.15"
+
+[profile.release]
+panic = "unwind"
+lto = true
+opt-level = "s"

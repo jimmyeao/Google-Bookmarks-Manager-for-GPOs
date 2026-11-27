@@ -1,0 +1,16 @@
+{
+  "name": "bookmark-manager",
+  "version": "1.2.0",
+  "description": "Bookmark Manager for Intune/GPO - cross-platform",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.6"
+  }
+}

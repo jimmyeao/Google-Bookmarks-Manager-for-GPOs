@@ -308,3 +308,22 @@ When implementing clipboard operations:
 - Parse using appropriate service
 - Validate structure matches Examples.md specifications
 - Handle errors gracefully with user-friendly messages
+
+## Cross-Platform Rust/Tauri Version (rust-app/)
+
+A full rewrite in Rust + Tauri 2 lives in `rust-app/`, targeting Windows, macOS, and Linux from one codebase. It replaces the WPF app feature-for-feature (profiles, tree editing, drag-and-drop, import/export in all 4 formats, undo, search, dark mode).
+
+### Build and Run
+```bash
+cd rust-app
+npm install
+npx tauri dev      # run in dev mode
+npx tauri build    # produce installers (MSI/NSIS on Windows, .app/.dmg on macOS)
+cargo test --manifest-path src-tauri/Cargo.toml   # backend unit tests
+```
+
+### Architecture
+- **Backend** (`src-tauri/src/`): `models.rs` (serde-compatible with the C# `BookmarkItem`/`BookmarkProfile` JSON shapes), `plist_service.rs` (plist XML fragment write/parse, incl. bare-`&` sanitization), `store.rs` (profiles persistence), `main.rs` (Tauri commands: `parse_import`, `export_json`, `export_plist`, clipboard, file pickers, settings).
+- **Frontend** (`src/`): dependency-free HTML/CSS/JS. Single canonical tree mutated by node id; search renders a filtered projection (avoids the WPF dual-tree equivalence-matching bugs).
+- **Data compatibility**: reads/writes the same `%AppData%/GoogleBookmarksManager/profiles.json` (Windows) — on macOS it uses `~/Library/Application Support/GoogleBookmarksManager/profiles.json`. Same JSON schema as the C# app, so profiles are interchangeable.
+- Edge export nuance: `"toplevel": true` is only added when the first array entry is actually the `toplevel_name` metadata entry.

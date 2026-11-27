@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bookmark Manager for Intune/GPO</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-grid">
+    <!-- Menu bar -->
+    <div class="menubar" id="menubar">
+      <div class="menu-root" id="fileMenuRoot">
+        <button class="menu-btn" id="fileMenuBtn">File</button>
+        <div class="menu-dropdown hidden" id="fileMenuDropdown">
+          <div class="menu-item" id="changeSaveLocation">Change Save Location...</div>
+          <div class="menu-sep"></div>
+          <div class="menu-item" id="openProfileFrom">Open Profile From...</div>
+          <div class="menu-sep"></div>
+          <div class="menu-item disabled">Save Location:</div>
+          <div class="menu-item disabled path-item" id="saveLocationDisplay"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Profile and global controls -->
+    <div class="card profile-card">
+      <div class="profile-row">
+        <span class="label-bold">Profile:</span>
+        <select id="profileCombo"></select>
+        <button id="newProfileBtn" class="btn">New</button>
+        <button id="renameProfileBtn" class="btn">Rename</button>
+        <button id="copyProfileBtn" class="btn">Copy</button>
+        <button id="deleteProfileBtn" class="btn">Delete</button>
+        <label class="darkmode-label">
+          <input type="checkbox" id="darkModeCheckbox" />
+          Dark Mode
+        </label>
+        <span class="spacer"></span>
+        <button id="importBtn" class="btn btn-wide">Import Bookmarks</button>
+        <button id="clearAllBtn" class="btn">Clear All</button>
+      </div>
+      <div class="profile-row">
+        <span class="label-bold">Top-Level Folder Name:</span>
+        <input type="text" id="topLevelFolderName" class="text-input wide-input" />
+        <button id="copyAllBtn" class="btn" title="Copy this profile's complete bookmark tree">Copy All Bookmarks</button>
+        <button id="pasteAllBtn" class="btn" title="Append copied bookmarks to this profile">Paste Bookmarks</button>
+      </div>
+    </div>
+
+    <!-- Tree panel -->
+    <div class="card tree-card">
+      <div id="treeView" class="tree-view" tabindex="0"></div>
+    </div>
+
+    <!-- Right column -->
+    <div class="right-column">
+      <div class="card details-card">
+        <div class="card-title">Bookmark Details</div>
+        <input type="text" id="bookmarkName" class="text-input" placeholder="Enter Bookmark Name" />
+        <input type="text" id="bookmarkUrl" class="text-input" placeholder="Enter URL" />
+        <div class="btn-row-right">
+          <button id="saveBookmarkBtn" class="btn">Save</button>
+          <button id="deleteBookmarkBtn" class="btn">Delete</button>
+        </div>
+      </div>
+
+      <div class="card search-card">
+        <input type="text" id="searchBox" class="text-input" placeholder="Search Bookmarks" />
+      </div>
+
+      <div class="card export-card">
+        <div class="card-title center">Export to Clipboard for Intune</div>
+        <div class="export-grid">
+          <button id="exportEdgeJson" class="btn">Edge (JSON)</button>
+          <button id="exportChromeJson" class="btn">Chrome (JSON)</button>
+          <button id="exportEdgePlist" class="btn">Edge (PLIST)</button>
+          <button id="exportChromePlist" class="btn">Chrome (PLIST)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context menu -->
+  <div id="contextMenu" class="context-menu hidden">
+    <div class="ctx-item" data-action="addTopFolder">Add Top-Level Folder</div>
+    <div class="ctx-item" data-action="addNestedFolder">Add Nested Folder</div>
+    <div class="ctx-item" data-action="sortAlpha">Sort Alphabetically</div>
+    <div class="ctx-item" data-action="addNestedBookmark">Add Nested Bookmark</div>
+    <div class="menu-sep"></div>
+    <div class="ctx-item" data-action="copy">Copy</div>
+    <div class="ctx-item" data-action="paste">Paste</div>
+    <div class="menu-sep"></div>
+    <div class="ctx-item" data-action="delete">Delete</div>
+  </div>
+
+  <!-- Modal overlay -->
+  <div id="modalOverlay" class="modal-overlay hidden">
+    <div class="modal" id="modalBox">
+      <div class="modal-title" id="modalTitle"></div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-buttons" id="modalButtons"></div>
+    </div>
+  </div>
+
+  <!-- Drop insertion indicator -->
+  <div id="insertionLine" class="insertion-line hidden"></div>
+
+  <script src="main.js"></script>
+</body>
+</html>
